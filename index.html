@@ -364,7 +364,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, initializeFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCUrvClKcDqEHSP0j8iDqQ_H6owO8LijgE",
@@ -380,7 +380,13 @@
         const app = initializeApp(firebaseConfig);
         try { getAnalytics(app); } catch (e) { /* analytics 在某些環境會失敗，忽略 */ }
 
-        const db = getFirestore(app);
+        // 強制使用 long polling：避免公部門網路、防火牆、瀏覽器防護擋掉 WebChannel 導致寫入卡住
+        let db;
+        try {
+            db = initializeFirestore(app, { experimentalForceLongPolling: true });
+        } catch (e) {
+            db = getFirestore(app);
+        }
         // 把 Firestore 基本功能暴露給下方的一般 script 使用
         window._firestore = { db, doc, getDoc, setDoc };
         window.firebaseApp = app;
@@ -594,10 +600,14 @@
             try {
                 const data = serializeAppData();
                 const json = JSON.stringify(data);
-                await fs.setDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID), {
+                // 加上 15 秒逾時保護：避免寫入請求卡住導致鎖永遠不釋放
+                const writePromise = fs.setDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID), {
                     json: json,
                     updatedAt: Date.now()
                 });
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('寫入逾時（網路或資料庫無回應）')), 15000));
+                await Promise.race([writePromise, timeout]);
                 if (!silent) showMessage('已自動存入雲端');
                 return true;
             } catch (err) {
