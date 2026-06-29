@@ -364,6 +364,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCUrvClKcDqEHSP0j8iDqQ_H6owO8LijgE",
@@ -377,9 +378,14 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        
+        try { getAnalytics(app); } catch (e) { /* analytics 在某些環境會失敗，忽略 */ }
+
+        const db = getFirestore(app);
+        // 把 Firestore 基本功能暴露給下方的一般 script 使用
+        window._firestore = { db, doc, getDoc, setDoc };
         window.firebaseApp = app;
+        // 通知下方腳本 Firestore 已就緒
+        window.dispatchEvent(new Event('firestore-ready'));
     </script>
 
     <script>
@@ -429,8 +435,17 @@
             return 'id_' + Math.random().toString(36).substring(2, 9);
         }
 
-        function initApp() {
-            addProject("未命名專案");
+        async function initApp() {
+            try {
+                const loaded = await loadFromFirestore();
+                if (!loaded) {
+                    addProject("未命名專案");
+                }
+            } catch (err) {
+                console.error('雲端讀取失敗', err);
+                showMessage('雲端讀取失敗，已開啟新專案', true);
+                addProject("未命名專案");
+            }
         }
 
         function openPrompt(title, defaultValue, callback) {
@@ -443,7 +458,7 @@
             promptCallback = callback;
         }
 
-        function saveAppData() {
+        function serializeAppData() {
             document.querySelectorAll('.project-panel input, .project-panel select, .project-panel img').forEach(el => {
                 if (el.tagName === 'SELECT') {
                     Array.from(el.options).forEach(opt => {
@@ -474,6 +489,11 @@
                 diagramData: diagramData,
                 htmlContent: Array.from(document.querySelectorAll('.project-panel')).map(p => ({id: p.id, html: p.innerHTML}))
             };
+            return data;
+        }
+
+        function saveAppData() {
+            const data = serializeAppData();
             const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -484,6 +504,51 @@
             showMessage('資料已成功儲存至本機');
         }
 
+        function restoreFromData(data) {
+            projects = data.projects || [];
+            projectInfoData = data.projectInfoData || {};
+            normalLengthData = data.normalLengthData || {};
+            abnormalLengthData = data.abnormalLengthData || {};
+            repairLengthData = data.repairLengthData || {};
+            segmentTotalLengths = data.segmentTotalLengths || {};
+            diagramData = data.diagramData || {};
+
+            document.getElementById('workspace').innerHTML = '';
+            if (data.htmlContent) {
+                data.htmlContent.forEach(item => {
+                    const div = document.createElement('div');
+                    div.id = item.id;
+                    div.className = 'project-panel table-container rounded-lg border border-gray-200 hidden flex-1 min-h-0 bg-white';
+                    div.innerHTML = item.html;
+                    document.getElementById('workspace').appendChild(div);
+
+                    const table = div.querySelector('table');
+                    if (table) {
+                        new Sortable(table, {
+                            draggable: 'tbody.segment-group',
+                            handle: '.segment-drag-handle',
+                            animation: 150,
+                            onEnd: function() { updateRowNumbers(table); }
+                        });
+                        table.querySelectorAll('tbody.segment-group').forEach(tbody => {
+                            new Sortable(tbody, {
+                                group: tbody.dataset.groupId, 
+                                draggable: 'tr.anomaly-row',
+                                handle: '.anomaly-drag-handle',
+                                animation: 150,
+                                onEnd: function() { rebuildGroupRowspans(tbody); }
+                            });
+                        });
+                    }
+                });
+            }
+
+            renderProjectList();
+            if (projects.length > 0) {
+                switchProject(projects[0].id);
+            }
+        }
+
         function loadAppData(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -491,48 +556,7 @@
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    projects = data.projects || [];
-                    projectInfoData = data.projectInfoData || {};
-                    normalLengthData = data.normalLengthData || {};
-                    abnormalLengthData = data.abnormalLengthData || {};
-                    repairLengthData = data.repairLengthData || {};
-                    segmentTotalLengths = data.segmentTotalLengths || {};
-                    diagramData = data.diagramData || {};
-                    
-                    document.getElementById('workspace').innerHTML = '';
-                    if (data.htmlContent) {
-                        data.htmlContent.forEach(item => {
-                            const div = document.createElement('div');
-                            div.id = item.id;
-                            div.className = 'project-panel table-container rounded-lg border border-gray-200 hidden flex-1 min-h-0 bg-white';
-                            div.innerHTML = item.html;
-                            document.getElementById('workspace').appendChild(div);
-                            
-                            const table = div.querySelector('table');
-                            if (table) {
-                                new Sortable(table, {
-                                    draggable: 'tbody.segment-group',
-                                    handle: '.segment-drag-handle',
-                                    animation: 150,
-                                    onEnd: function() { updateRowNumbers(table); }
-                                });
-                                table.querySelectorAll('tbody.segment-group').forEach(tbody => {
-                                    new Sortable(tbody, {
-                                        group: tbody.dataset.groupId, 
-                                        draggable: 'tr.anomaly-row',
-                                        handle: '.anomaly-drag-handle',
-                                        animation: 150,
-                                        onEnd: function() { rebuildGroupRowspans(tbody); }
-                                    });
-                                });
-                            }
-                        });
-                    }
-                    
-                    renderProjectList();
-                    if(projects.length > 0) {
-                        switchProject(projects[0].id);
-                    }
+                    restoreFromData(data);
                     showMessage('資料已成功載入');
                 } catch (err) {
                     showMessage('讀取失敗，檔案格式錯誤', true);
@@ -540,6 +564,84 @@
                 event.target.value = '';
             };
             reader.readAsText(file);
+        }
+
+        // ===== Firestore 自動存讀 =====
+        // 所有資料存在 Firestore 的 appData/main 這一份文件中（整份序列化成 JSON 字串，
+        // 避免 Firestore 對巢狀陣列等型別的限制）。
+        const FS_COLLECTION = 'appData';
+        const FS_DOC_ID = 'main';
+        let firestoreReady = !!(window._firestore);
+        let isSavingToCloud = false;
+        let autoSaveTimer = null;
+
+        window.addEventListener('firestore-ready', () => { firestoreReady = true; });
+
+        function waitForFirestore() {
+            return new Promise(resolve => {
+                if (window._firestore) return resolve(window._firestore);
+                window.addEventListener('firestore-ready', () => resolve(window._firestore), { once: true });
+                // 保險：最多等 8 秒
+                setTimeout(() => resolve(window._firestore || null), 8000);
+            });
+        }
+
+        async function saveToFirestore(silent = false) {
+            const fs = window._firestore;
+            if (!fs) return false;
+            if (isSavingToCloud) return false;
+            isSavingToCloud = true;
+            try {
+                const data = serializeAppData();
+                const json = JSON.stringify(data);
+                await fs.setDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID), {
+                    json: json,
+                    updatedAt: Date.now()
+                });
+                if (!silent) showMessage('已自動存入雲端');
+                return true;
+            } catch (err) {
+                console.error('Firestore 存檔失敗', err);
+                // Firestore 單一文件上限約 1MB，若含大量照片很容易超過
+                const tooBig = String(err && err.message || '').toLowerCase().includes('longer than') ||
+                               String(err && err.message || '').includes('1048');
+                showMessage(tooBig ? '雲端存檔失敗：資料超過 1MB 上限（照片過多）' : '雲端存檔失敗，請檢查網路或資料庫規則', true);
+                return false;
+            } finally {
+                isSavingToCloud = false;
+            }
+        }
+
+        // 退出畫面時用 fire-and-forget 方式送出（不保證一定送達，故另有變更後自動存檔做保險）
+        function saveToFirestoreBeacon() {
+            const fs = window._firestore;
+            if (!fs) return;
+            try {
+                const data = serializeAppData();
+                fs.setDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID), {
+                    json: JSON.stringify(data),
+                    updatedAt: Date.now()
+                });
+            } catch (err) {
+                console.error('離開時存檔失敗', err);
+            }
+        }
+
+        async function loadFromFirestore() {
+            const fs = await waitForFirestore();
+            if (!fs) return false;
+            const snap = await fs.getDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID));
+            if (snap.exists() && snap.data() && snap.data().json) {
+                restoreFromData(JSON.parse(snap.data().json));
+                return true;
+            }
+            return false;
+        }
+
+        // 變更後自動存檔（防抖 1.5 秒），作為「退出時存檔」的保險
+        function scheduleAutoSave() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => saveToFirestore(true), 1500);
         }
 
         function closePrompt() {
@@ -2292,6 +2394,23 @@
         }
 
         window.onload = initApp;
+
+        // 退出畫面時自動存檔（切換分頁、最小化、關閉視窗皆會觸發）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                saveToFirestoreBeacon();
+            }
+        });
+        window.addEventListener('pagehide', saveToFirestoreBeacon);
+        window.addEventListener('beforeunload', saveToFirestoreBeacon);
+
+        // 變更後自動存檔（保險：避免退出當下的非同步寫入來不及送達）
+        document.addEventListener('input', (e) => {
+            if (e.target.closest && e.target.closest('.project-panel')) scheduleAutoSave();
+        });
+        document.addEventListener('change', (e) => {
+            if (e.target.closest && e.target.closest('.project-panel')) scheduleAutoSave();
+        });
 
     </script>
 </body>
