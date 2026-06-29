@@ -364,7 +364,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
-        import { getFirestore, initializeFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCUrvClKcDqEHSP0j8iDqQ_H6owO8LijgE",
@@ -380,17 +380,10 @@
         const app = initializeApp(firebaseConfig);
         try { getAnalytics(app); } catch (e) { /* analytics 在某些環境會失敗，忽略 */ }
 
-        // 強制使用 long polling：避免公部門網路、防火牆、瀏覽器防護擋掉 WebChannel 導致寫入卡住
-        let db;
-        try {
-            db = initializeFirestore(app, { experimentalForceLongPolling: true });
-        } catch (e) {
-            db = getFirestore(app);
-        }
-        // 把 Firestore 基本功能暴露給下方的一般 script 使用
-        window._firestore = { db, doc, getDoc, setDoc };
+        // 使用 Realtime Database（firebaseio.com）：在本網路環境下 Firestore 會被擋，RTDB 線路是通的
+        const db = getDatabase(app);
+        window._rtdb = { db, ref, set, get };
         window.firebaseApp = app;
-        // 通知下方腳本 Firestore 已就緒
         window.dispatchEvent(new Event('firestore-ready'));
     </script>
 
@@ -572,12 +565,10 @@
             reader.readAsText(file);
         }
 
-        // ===== Firestore 自動存讀 =====
-        // 所有資料存在 Firestore 的 appData/main 這一份文件中（整份序列化成 JSON 字串，
-        // 避免 Firestore 對巢狀陣列等型別的限制）。
-        const FS_COLLECTION = 'appData';
-        const FS_DOC_ID = 'main';
-        let firestoreReady = !!(window._firestore);
+        // ===== Realtime Database 自動存讀 =====
+        // 整份資料序列化成 JSON 字串，存在 RTDB 的 appData/main 路徑下。
+        const RTDB_PATH = 'appData/main';
+        let firestoreReady = !!(window._rtdb);
         let isSavingToCloud = false;
         let autoSaveTimer = null;
 
@@ -585,23 +576,23 @@
 
         function waitForFirestore() {
             return new Promise(resolve => {
-                if (window._firestore) return resolve(window._firestore);
-                window.addEventListener('firestore-ready', () => resolve(window._firestore), { once: true });
+                if (window._rtdb) return resolve(window._rtdb);
+                window.addEventListener('firestore-ready', () => resolve(window._rtdb), { once: true });
                 // 保險：最多等 8 秒
-                setTimeout(() => resolve(window._firestore || null), 8000);
+                setTimeout(() => resolve(window._rtdb || null), 8000);
             });
         }
 
         async function saveToFirestore(silent = false) {
-            const fs = window._firestore;
-            if (!fs) return false;
+            const fb = window._rtdb;
+            if (!fb) return false;
             if (isSavingToCloud) return false;
             isSavingToCloud = true;
             try {
                 const data = serializeAppData();
                 const json = JSON.stringify(data);
                 // 加上 15 秒逾時保護：避免寫入請求卡住導致鎖永遠不釋放
-                const writePromise = fs.setDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID), {
+                const writePromise = fb.set(fb.ref(fb.db, RTDB_PATH), {
                     json: json,
                     updatedAt: Date.now()
                 });
@@ -611,11 +602,8 @@
                 if (!silent) showMessage('已自動存入雲端');
                 return true;
             } catch (err) {
-                console.error('Firestore 存檔失敗', err);
-                // Firestore 單一文件上限約 1MB，若含大量照片很容易超過
-                const tooBig = String(err && err.message || '').toLowerCase().includes('longer than') ||
-                               String(err && err.message || '').includes('1048');
-                showMessage(tooBig ? '雲端存檔失敗：資料超過 1MB 上限（照片過多）' : '雲端存檔失敗，請檢查網路或資料庫規則', true);
+                console.error('雲端存檔失敗', err);
+                showMessage('雲端存檔失敗，請檢查網路或資料庫規則', true);
                 return false;
             } finally {
                 isSavingToCloud = false;
@@ -624,11 +612,11 @@
 
         // 退出畫面時用 fire-and-forget 方式送出（不保證一定送達，故另有變更後自動存檔做保險）
         function saveToFirestoreBeacon() {
-            const fs = window._firestore;
-            if (!fs) return;
+            const fb = window._rtdb;
+            if (!fb) return;
             try {
                 const data = serializeAppData();
-                fs.setDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID), {
+                fb.set(fb.ref(fb.db, RTDB_PATH), {
                     json: JSON.stringify(data),
                     updatedAt: Date.now()
                 });
@@ -638,11 +626,11 @@
         }
 
         async function loadFromFirestore() {
-            const fs = await waitForFirestore();
-            if (!fs) return false;
-            const snap = await fs.getDoc(fs.doc(fs.db, FS_COLLECTION, FS_DOC_ID));
-            if (snap.exists() && snap.data() && snap.data().json) {
-                restoreFromData(JSON.parse(snap.data().json));
+            const fb = await waitForFirestore();
+            if (!fb) return false;
+            const snap = await fb.get(fb.ref(fb.db, RTDB_PATH));
+            if (snap.exists() && snap.val() && snap.val().json) {
+                restoreFromData(JSON.parse(snap.val().json));
                 return true;
             }
             return false;
