@@ -116,7 +116,7 @@
                 </button>
                 <input type="file" id="fileInput" onchange="loadAppData(event)" class="hidden" accept=".json">
                 <button onclick="document.getElementById('fileInput').click()" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-gray-500">
-                    匯入至本機
+                    自本機匯入
                 </button>
                 <button onclick="showProjectStatsModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-teal-500">
                     專案統計
@@ -491,13 +491,36 @@
             return data;
         }
 
-        function saveAppData() {
+        async function saveAppData() {
             const data = serializeAppData();
-            const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+            const json = JSON.stringify(data);
+            const defaultName = `backup_${new Date().toISOString().slice(0,10)}.json`;
+
+            // 支援的瀏覽器（Chrome / Edge）：跳出「另存新檔」視窗讓使用者選路徑
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: defaultName,
+                        types: [{ description: 'JSON 檔案', accept: { 'application/json': ['.json'] } }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(json);
+                    await writable.close();
+                    showMessage('資料已成功儲存至本機');
+                    return;
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return; // 使用者取消，不提示
+                    // 某些環境（如預覽的跨來源 iframe）會擋下選擇器，自動退回下載方式
+                    console.warn('showSaveFilePicker 無法使用，改用下載方式', err);
+                }
+            }
+
+            // 不支援或被環境擋下：退回傳統下載方式
+            const blob = new Blob([json], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = defaultName;
             a.click();
             URL.revokeObjectURL(url);
             showMessage('資料已成功儲存至本機');
