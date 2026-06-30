@@ -114,6 +114,9 @@
                 <button onclick="saveAppData()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-green-500">
                     儲存至本機
                 </button>
+                <button onclick="manualCloudSave()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-orange-500">
+                    儲存至雲端
+                </button>
                 <input type="file" id="fileInput" onchange="loadAppData(event)" class="hidden" accept=".json">
                 <button onclick="document.getElementById('fileInput').click()" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-gray-500">
                     自本機匯入
@@ -679,6 +682,20 @@
             if (!json) return false;
             restoreFromData(JSON.parse(json));
             return true;
+        }
+
+        // 手動「儲存至雲端」按鈕：立即備份到 Firebase 並顯示結果
+        async function manualCloudSave() {
+            if (isSavingToCloud) {
+                showMessage('雲端存檔進行中，請稍候…');
+                return;
+            }
+            showMessage('正在備份至雲端…');
+            const ok = await saveToFirestore(true);
+            if (ok) {
+                showMessage('已成功備份至雲端');
+            }
+            // 失敗時 saveToFirestore 內部已顯示錯誤訊息
         }
 
         // 變更後自動存檔（防抖 1.5 秒），作為「退出時存檔」的保險
