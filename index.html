@@ -589,8 +589,10 @@
         }
 
         // ===== Realtime Database 自動存讀 =====
-        // 整份資料序列化成 JSON 字串，存在 RTDB 的 appData/main 路徑下。
+        // RTDB 單一字串值上限為 10MB，照片以 base64 內嵌會累積超過上限，
+        // 因此把整段 JSON 切成多個小塊（每塊遠低於 10MB）分開存，讀取時再接回來。
         const RTDB_PATH = 'appData/main';
+        const CHUNK_SIZE = 3 * 1024 * 1024; // 每塊約 3MB 字元（即使全為中文，UTF-8 也遠低於 10MB）
         let firestoreReady = !!(window._rtdb);
         let isSavingToCloud = false;
         let autoSaveTimer = null;
@@ -606,6 +608,18 @@
             });
         }
 
+        // 將 JSON 字串切成多塊，組裝成要寫入 RTDB 的物件
+        function buildChunkedPayload(json) {
+            const payload = { format: 'chunked', count: 0, updatedAt: Date.now() };
+            let i = 0;
+            for (let pos = 0; pos < json.length; pos += CHUNK_SIZE) {
+                payload['c' + i] = json.slice(pos, pos + CHUNK_SIZE);
+                i++;
+            }
+            payload.count = i;
+            return payload;
+        }
+
         async function saveToFirestore(silent = false) {
             const fb = window._rtdb;
             if (!fb) return false;
@@ -614,13 +628,11 @@
             try {
                 const data = serializeAppData();
                 const json = JSON.stringify(data);
-                // 加上 15 秒逾時保護：避免寫入請求卡住導致鎖永遠不釋放
-                const writePromise = fb.set(fb.ref(fb.db, RTDB_PATH), {
-                    json: json,
-                    updatedAt: Date.now()
-                });
+                const payload = buildChunkedPayload(json);
+                // 加上 30 秒逾時保護：避免寫入請求卡住導致鎖永遠不釋放
+                const writePromise = fb.set(fb.ref(fb.db, RTDB_PATH), payload);
                 const timeout = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('寫入逾時（網路或資料庫無回應）')), 15000));
+                    setTimeout(() => reject(new Error('寫入逾時（網路或資料庫無回應）')), 30000));
                 await Promise.race([writePromise, timeout]);
                 if (!silent) showMessage('已自動存入雲端');
                 return true;
@@ -639,10 +651,8 @@
             if (!fb) return;
             try {
                 const data = serializeAppData();
-                fb.set(fb.ref(fb.db, RTDB_PATH), {
-                    json: JSON.stringify(data),
-                    updatedAt: Date.now()
-                });
+                const payload = buildChunkedPayload(JSON.stringify(data));
+                fb.set(fb.ref(fb.db, RTDB_PATH), payload);
             } catch (err) {
                 console.error('離開時存檔失敗', err);
             }
@@ -652,11 +662,23 @@
             const fb = await waitForFirestore();
             if (!fb) return false;
             const snap = await fb.get(fb.ref(fb.db, RTDB_PATH));
-            if (snap.exists() && snap.val() && snap.val().json) {
-                restoreFromData(JSON.parse(snap.val().json));
-                return true;
+            if (!snap.exists() || !snap.val()) return false;
+            const val = snap.val();
+            let json = null;
+            if (val.format === 'chunked' && typeof val.count === 'number') {
+                // 將各小塊按順序接回來
+                let combined = '';
+                for (let i = 0; i < val.count; i++) {
+                    combined += (val['c' + i] || '');
+                }
+                json = combined;
+            } else if (val.json) {
+                // 相容舊格式（未切塊的單一字串）
+                json = val.json;
             }
-            return false;
+            if (!json) return false;
+            restoreFromData(JSON.parse(json));
+            return true;
         }
 
         // 變更後自動存檔（防抖 1.5 秒），作為「退出時存檔」的保險
