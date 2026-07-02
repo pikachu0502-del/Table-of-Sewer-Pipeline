@@ -115,7 +115,7 @@
                     儲存至本機
                 </button>
                 <button onclick="manualCloudSave()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-orange-500">
-                    儲存至雲端
+                    壓縮並儲存至雲端
                 </button>
                 <input type="file" id="fileInput" onchange="loadAppData(event)" class="hidden" accept=".json">
                 <button onclick="document.getElementById('fileInput').click()" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-gray-500">
@@ -439,14 +439,21 @@
 
         async function initApp() {
             try {
-                const loaded = await loadFromFirestore();
-                if (!loaded) {
+                const status = await loadFromFirestore();
+                if (status === 'loaded') {
+                    // 成功讀到雲端資料 → 之後允許自動存檔覆蓋雲端
+                    cloudSafeToOverwrite = true;
+                } else if (status === 'empty') {
+                    // 雲端本來就是空的（全新資料庫）→ 可安全寫入
+                    cloudSafeToOverwrite = true;
                     addProject("未命名專案");
                 }
             } catch (err) {
+                // 讀取失敗／逾時 → 絕不自動覆蓋雲端，以免空白資料洗掉既有備份
                 console.error('雲端讀取失敗', err);
-                showMessage('雲端讀取失敗，已開啟新專案', true);
+                cloudSafeToOverwrite = false;
                 addProject("未命名專案");
+                showMessage('⚠ 雲端讀取失敗！為保護既有資料，已暫停自動上傳。請重新整理頁面再試，切勿在此狀態下手動上傳。', true);
             }
         }
 
@@ -596,6 +603,7 @@
         // 因此把整段 JSON 切成多個小塊（每塊遠低於 10MB）分開存，讀取時再接回來。
         const RTDB_PATH = 'appData/main';
         const CHUNK_SIZE = 3 * 1024 * 1024; // 每塊約 3MB 字元（即使全為中文，UTF-8 也遠低於 10MB）
+        let cloudSafeToOverwrite = false;   // 只有確認雲端讀取成功後才允許自動存檔覆蓋雲端（防止空白資料洗掉備份）
         let firestoreReady = !!(window._rtdb);
         let isSavingToCloud = false;
         let autoSaveTimer = null;
@@ -611,16 +619,90 @@
             });
         }
 
-        // 將 JSON 字串切成多塊，組裝成要寫入 RTDB 的物件
-        function buildChunkedPayload(json) {
-            const payload = { format: 'chunked', count: 0, updatedAt: Date.now() };
-            let i = 0;
+        // 工具：為任一 Promise 加上逾時保護
+        function withTimeout(promise, ms, msg) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
+            ]);
+        }
+
+        // 將 JSON 切成多塊
+        function splitIntoChunks(json) {
+            const chunks = [];
             for (let pos = 0; pos < json.length; pos += CHUNK_SIZE) {
-                payload['c' + i] = json.slice(pos, pos + CHUNK_SIZE);
-                i++;
+                chunks.push(json.slice(pos, pos + CHUNK_SIZE));
             }
-            payload.count = i;
-            return payload;
+            return chunks;
+        }
+
+        // ===== 雲端專用：上傳前壓縮照片（不動 App 內的原圖） =====
+        const CLOUD_IMG_MAXDIM = 800;   // 雲端版照片最長邊
+        const CLOUD_IMG_QUALITY = 0.45; // 雲端版照片品質
+        let lastCloudChunks = null;     // 快取上次成功上傳的分塊，供離開時的 beacon 使用
+
+        // 壓縮單一 data:image，回傳較小的 dataURL（非圖片或失敗則原樣回傳）
+        function compressDataUrl(dataUrl) {
+            return new Promise((resolve) => {
+                if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+                    resolve(dataUrl);
+                    return;
+                }
+                const img = new Image();
+                img.onload = function() {
+                    try {
+                        let w = img.width, h = img.height;
+                        if (w > CLOUD_IMG_MAXDIM || h > CLOUD_IMG_MAXDIM) {
+                            if (w > h) { h *= CLOUD_IMG_MAXDIM / w; w = CLOUD_IMG_MAXDIM; }
+                            else { w *= CLOUD_IMG_MAXDIM / h; h = CLOUD_IMG_MAXDIM; }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', CLOUD_IMG_QUALITY));
+                    } catch (e) { resolve(dataUrl); }
+                };
+                img.onerror = function() { resolve(dataUrl); };
+                img.src = dataUrl;
+            });
+        }
+
+        // 取得「壓縮過照片」的資料副本，供上傳雲端使用（不影響 App 內原圖與本機存檔）
+        async function buildCompressedCloudData() {
+            const data = JSON.parse(JSON.stringify(serializeAppData())); // 深層複本，避免動到原資料
+
+            // 1) 表格內的照片（htmlContent 裡的 <img src="data:...">）
+            if (Array.isArray(data.htmlContent)) {
+                const parser = new DOMParser();
+                for (const item of data.htmlContent) {
+                    if (!item.html || item.html.indexOf('data:image') === -1) continue;
+                    const docp = parser.parseFromString('<div id="__w">' + item.html + '</div>', 'text/html');
+                    const wrap = docp.getElementById('__w');
+                    const imgs = wrap.querySelectorAll('img[src^="data:image"]');
+                    for (const im of imgs) {
+                        im.setAttribute('src', await compressDataUrl(im.getAttribute('src')));
+                    }
+                    item.html = wrap.innerHTML;
+                }
+            }
+
+            // 2) 管段圖照片（diagramData[proj][group].photos[0..3]）
+            if (data.diagramData && typeof data.diagramData === 'object') {
+                for (const projId of Object.keys(data.diagramData)) {
+                    const groups = data.diagramData[projId];
+                    if (!groups || typeof groups !== 'object') continue;
+                    for (const gid of Object.keys(groups)) {
+                        const st = groups[gid];
+                        if (st && Array.isArray(st.photos)) {
+                            for (let i = 0; i < st.photos.length; i++) {
+                                if (st.photos[i]) st.photos[i] = await compressDataUrl(st.photos[i]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return data;
         }
 
         async function saveToFirestore(silent = false) {
@@ -629,59 +711,85 @@
             if (isSavingToCloud) return false;
             isSavingToCloud = true;
             try {
-                const data = serializeAppData();
+                // 雲端一律存壓縮版（照片縮小），避免超過寫入上限
+                const data = await buildCompressedCloudData();
                 const json = JSON.stringify(data);
-                const payload = buildChunkedPayload(json);
-                // 加上 30 秒逾時保護：避免寫入請求卡住導致鎖永遠不釋放
-                const writePromise = fb.set(fb.ref(fb.db, RTDB_PATH), payload);
-                const timeout = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('寫入逾時（網路或資料庫無回應）')), 30000));
-                await Promise.race([writePromise, timeout]);
+                const chunks = splitIntoChunks(json);
+                const childRef = (p) => fb.ref(fb.db, RTDB_PATH + '/' + p);
+
+                // 先讀舊的塊數，稍後清除多餘的殘留塊
+                let oldCount = 0;
+                try {
+                    const s = await withTimeout(fb.get(childRef('meta')), 15000, '讀取逾時');
+                    if (s.exists() && s.val() && typeof s.val().count === 'number') oldCount = s.val().count;
+                } catch (e) { /* 讀不到就當作 0 */ }
+
+                // 每個分塊「各自獨立寫入」（一次只寫 ~3MB，避免單次寫入超過 16MB 上限）
+                for (let i = 0; i < chunks.length; i++) {
+                    await withTimeout(fb.set(childRef('chunk' + i), chunks[i]), 30000, '寫入逾時（網路或資料庫無回應）');
+                }
+                // 清除比這次更舊、用不到的殘留塊
+                for (let i = chunks.length; i < oldCount; i++) {
+                    await withTimeout(fb.set(childRef('chunk' + i), null), 15000, '清除逾時');
+                }
+                // 最後才寫入 meta（代表整份資料已完整寫好）
+                await withTimeout(fb.set(childRef('meta'), { count: chunks.length, updatedAt: Date.now() }), 15000, '寫入逾時（網路或資料庫無回應）');
+
+                lastCloudChunks = chunks; // 快取供離開時使用
                 if (!silent) showMessage('已自動存入雲端');
                 return true;
             } catch (err) {
                 console.error('雲端存檔失敗', err);
-                showMessage('雲端存檔失敗，請檢查網路或資料庫規則', true);
+                showMessage('雲端存檔失敗：' + (err && err.message || err), true);
                 return false;
             } finally {
                 isSavingToCloud = false;
             }
         }
 
-        // 退出畫面時用 fire-and-forget 方式送出（不保證一定送達，故另有變更後自動存檔做保險）
+        // 退出畫面時：把「上次成功上傳的壓縮分塊」再送一次（best effort；同步、不重算）
         function saveToFirestoreBeacon() {
             const fb = window._rtdb;
-            if (!fb) return;
+            if (!fb || !lastCloudChunks) return;
             try {
-                const data = serializeAppData();
-                const payload = buildChunkedPayload(JSON.stringify(data));
-                fb.set(fb.ref(fb.db, RTDB_PATH), payload);
+                const childRef = (p) => fb.ref(fb.db, RTDB_PATH + '/' + p);
+                lastCloudChunks.forEach((c, i) => { fb.set(childRef('chunk' + i), c); });
+                fb.set(childRef('meta'), { count: lastCloudChunks.length, updatedAt: Date.now() });
             } catch (err) {
                 console.error('離開時存檔失敗', err);
             }
         }
 
+        // 回傳 'loaded'（讀到資料）｜'empty'（雲端確實是空的）；讀取失敗會 throw
         async function loadFromFirestore() {
             const fb = await waitForFirestore();
-            if (!fb) return false;
-            const snap = await fb.get(fb.ref(fb.db, RTDB_PATH));
-            if (!snap.exists() || !snap.val()) return false;
+            if (!fb) throw new Error('Firebase 尚未就緒');
+            const snap = await withTimeout(fb.get(fb.ref(fb.db, RTDB_PATH)), 20000, '讀取逾時（網路或資料庫無回應）');
+            if (!snap.exists() || !snap.val()) return 'empty';
             const val = snap.val();
             let json = null;
-            if (val.format === 'chunked' && typeof val.count === 'number') {
-                // 將各小塊按順序接回來
+            if (val.meta && typeof val.meta.count === 'number') {
+                // 新格式：各塊獨立寫入（chunk0、chunk1…）
+                let combined = '';
+                for (let i = 0; i < val.meta.count; i++) {
+                    combined += (val['chunk' + i] || '');
+                }
+                json = combined;
+            } else if (val.format === 'chunked' && typeof val.count === 'number') {
+                // 舊格式：整包一次寫入的切塊（c0、c1…）
                 let combined = '';
                 for (let i = 0; i < val.count; i++) {
                     combined += (val['c' + i] || '');
                 }
                 json = combined;
             } else if (val.json) {
-                // 相容舊格式（未切塊的單一字串）
+                // 最舊格式：未切塊的單一字串
                 json = val.json;
             }
-            if (!json) return false;
+            // 有節點但內容解不出來 → 視為讀取失敗（不要當成空的，以免覆蓋）
+            if (!json) throw new Error('雲端資料格式無法解析');
             restoreFromData(JSON.parse(json));
-            return true;
+            return 'loaded';
         }
 
         // 手動「儲存至雲端」按鈕：立即備份到 Firebase 並顯示結果
@@ -690,9 +798,16 @@
                 showMessage('雲端存檔進行中，請稍候…');
                 return;
             }
-            showMessage('正在備份至雲端…');
+            // 開啟時雲端讀取失敗 → 手動上傳有洗掉既有備份的風險，先請使用者確認
+            if (!cloudSafeToOverwrite) {
+                const ok = confirm('⚠ 本次開啟時「雲端讀取沒有成功」，目前畫面可能不是雲端最新資料。\n\n若現在上傳，可能會覆蓋掉雲端既有的備份！\n\n建議先重新整理頁面、確認資料正確再上傳。\n\n確定仍要現在上傳並覆蓋雲端嗎？');
+                if (!ok) return;
+            }
+            showMessage('正在壓縮照片並備份至雲端…');
             const ok = await saveToFirestore(true);
             if (ok) {
+                // 手動成功寫入後，雲端內容即為目前畫面 → 之後可安全自動存檔
+                cloudSafeToOverwrite = true;
                 showMessage('已成功備份至雲端');
             }
             // 失敗時 saveToFirestore 內部已顯示錯誤訊息
@@ -700,6 +815,8 @@
 
         // 變更後自動存檔（防抖 1.5 秒），作為「退出時存檔」的保險
         function scheduleAutoSave() {
+            // 若這次開啟時雲端讀取沒成功，禁止自動覆蓋雲端（避免空白／不完整資料洗掉既有備份）
+            if (!cloudSafeToOverwrite) return;
             clearTimeout(autoSaveTimer);
             autoSaveTimer = setTimeout(() => saveToFirestore(true), 1500);
         }
