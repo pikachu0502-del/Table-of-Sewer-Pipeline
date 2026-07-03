@@ -160,6 +160,9 @@
                 <button onclick="addSubRow()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     + 新增同管段異常
                 </button>
+                <button onclick="addSubRowDifferentStart()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    + 新增不同起始人孔
+                </button>
                 <button onclick="addSegmentRow()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     + 新增管段
                 </button>
@@ -579,6 +582,7 @@
             if (projects.length > 0) {
                 switchProject(projects[0].id);
             }
+            updateRowNumbers(); // 載入完成後重新計算一次全局編號，確保與目前專案順序一致
         }
 
         function loadAppData(event) {
@@ -1252,6 +1256,11 @@
                 const li = document.createElement('li');
                 li.className = `project-item cursor-pointer py-3 px-4 hover:bg-gray-700 transition duration-150 flex justify-between items-center ${p.id === activeProjectId ? 'active' : ''}`;
                 li.dataset.id = p.id;
+
+                const dragHandle = document.createElement('span');
+                dragHandle.className = 'project-drag-handle cursor-move text-gray-500 hover:text-gray-300 mr-2 shrink-0';
+                dragHandle.title = '拖曳以調整順序';
+                dragHandle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>`;
                 
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'truncate flex-1';
@@ -1266,10 +1275,25 @@
                     editProjectName(p.id);
                 };
 
+                li.appendChild(dragHandle);
                 li.appendChild(nameSpan);
                 li.appendChild(editBtn);
                 list.appendChild(li);
             });
+
+            if (!list.dataset.sortableInit) {
+                new Sortable(list, {
+                    handle: '.project-drag-handle',
+                    animation: 150,
+                    onEnd: function() {
+                        const orderedIds = Array.from(list.querySelectorAll('.project-item')).map(li => li.dataset.id);
+                        projects.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+                        updateRowNumbers(); // 專案順序改變後，重新計算全局編號
+                        scheduleAutoSave();
+                    }
+                });
+                list.dataset.sortableInit = 'true';
+            }
         }
 
         function switchProject(id) {
@@ -1375,15 +1399,22 @@
         }
 
         function updateRowNumbers(table) {
+            // 編號改為跨專案全局連續編號（依專案列表順序），不再每個專案從 1 重新開始
             let currentId = 1;
-            const tbodys = table.querySelectorAll('tbody.segment-group');
-            tbodys.forEach(tbody => {
-                const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
-                if (mainRow) {
-                    const rowNumCell = mainRow.querySelector('.row-number');
-                    if (rowNumCell) rowNumCell.textContent = currentId;
-                }
-                currentId++;
+            projects.forEach(p => {
+                const panel = document.querySelector(`#panel-${p.id}`);
+                if (!panel) return;
+                const t = panel.querySelector('table');
+                if (!t) return;
+                const tbodys = t.querySelectorAll('tbody.segment-group');
+                tbodys.forEach(tbody => {
+                    const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
+                    if (mainRow) {
+                        const rowNumCell = mainRow.querySelector('.row-number');
+                        if (rowNumCell) rowNumCell.textContent = currentId;
+                    }
+                    currentId++;
+                });
             });
         }
 
@@ -1498,6 +1529,103 @@
             calculateSingleWeight(row);
         }
 
+        // 取得一列中「整個管段共用」的欄位格（工程標別～管材等 11 欄），用 class 判斷、不依賴固定索引
+        function getCoreSharedCells(row) {
+            return Array.from(row.querySelectorAll(':scope > td.core-shared-td'));
+        }
+        // 取得一列中「整個管段共用」的右側計算欄（總權重/評估分級/處理建議）
+        function getGroupRightSharedCells(row) {
+            return Array.from(row.querySelectorAll(':scope > td.group-right-shared-td'));
+        }
+
+        // 舊版本相容：舊資料的主列沒有 core-shared-td / start-manhole-td / group-right-shared-td 標記，
+        // 這裡依原本固定的 12 欄位置自動補上標記（只會執行一次），並讓整個 tbody 的列共用同一起始人孔叛集
+        function migrateLegacyGroup(tbody) {
+            const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
+            if (!mainRow) return;
+            if (mainRow.querySelector(':scope > td.core-shared-td') || mainRow.querySelector(':scope > td.start-manhole-td')) return;
+            const cells = Array.from(mainRow.children).filter(c => c.tagName === 'TD');
+            if (cells.length < 12) return;
+            cells.forEach((cell, idx) => {
+                if (idx === 5) {
+                    cell.classList.add('start-manhole-td');
+                } else if (idx < 12) {
+                    cell.classList.add('core-shared-td');
+                }
+            });
+            const allCells = Array.from(mainRow.cells);
+            const totalLen = allCells.length;
+            if (allCells[totalLen - 4]) allCells[totalLen - 4].classList.add('group-right-shared-td');
+            if (allCells[totalLen - 3]) allCells[totalLen - 3].classList.add('group-right-shared-td');
+            if (allCells[totalLen - 2]) allCells[totalLen - 2].classList.add('group-right-shared-td');
+
+            const cid = mainRow.dataset.startClusterId || tbody.dataset.groupId;
+            tbody.querySelectorAll('tr.anomaly-row').forEach(r => {
+                if (!r.dataset.startClusterId) r.dataset.startClusterId = cid;
+            });
+        }
+        // 把 coreCells 依正確順序插入 row：若 row 本身持有「起始人孔」格，coreCells 要分成前後兩段包住它；否則整組插在最前面
+        function insertCoreCells(row, coreCells) {
+            const startTd = row.querySelector(':scope > td.start-manhole-td');
+            if (startTd) {
+                const before = coreCells.slice(0, 5);
+                const after = coreCells.slice(5);
+                before.forEach(c => row.insertBefore(c, startTd));
+                const afterAnchor = startTd.nextSibling;
+                after.forEach(c => row.insertBefore(c, afterAnchor));
+            } else {
+                const ref = row.firstElementChild;
+                coreCells.forEach(c => row.insertBefore(c, ref));
+            }
+        }
+
+        // 依每列的 startClusterId，把「起始人孔」欄重建為多個連續叢集各自合併（預設全部同一叢集＝維持原本整段合併）
+        function rebuildStartClusters(tbody) {
+            const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
+            if (rows.length === 0) return;
+
+            // 先讀出現有各列（若持有格子）的值，避免重建時遺失
+            const valueByRow = new Map();
+            rows.forEach(r => {
+                const td = r.querySelector(':scope > td.start-manhole-td');
+                if (td) {
+                    const input = td.querySelector('input');
+                    valueByRow.set(r, input ? input.value : '');
+                }
+            });
+
+            // 移除所有現有的起始人孔格，之後依叢集重建
+            rows.forEach(r => {
+                const td = r.querySelector(':scope > td.start-manhole-td');
+                if (td) td.remove();
+            });
+
+            let i = 0;
+            while (i < rows.length) {
+                const cid = rows[i].dataset.startClusterId || rows[i].dataset.groupId;
+                let j = i;
+                while (j + 1 < rows.length && (rows[j + 1].dataset.startClusterId || rows[j + 1].dataset.groupId) === cid) j++;
+
+                let value = '';
+                for (let k = i; k <= j; k++) {
+                    if (valueByRow.has(rows[k])) { value = valueByRow.get(rows[k]); break; }
+                }
+
+                const headRow = rows[i];
+                const td = document.createElement('td');
+                td.className = 'start-manhole-td';
+                td.rowSpan = j - i + 1;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = '起始';
+                input.value = value;
+                td.appendChild(input);
+                headRow.insertBefore(td, headRow.firstElementChild);
+
+                i = j + 1;
+            }
+        }
+
         function rebuildGroupRowspans(tbody) {
             const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
             if (rows.length === 0) return;
@@ -1505,32 +1633,30 @@
             const oldMainRow = rows.find(r => r.dataset.segmentType === 'new');
             if (!oldMainRow) return;
 
+            // 0) 舊版本相容：若這組是舊資料，先自動補上標記
+            migrateLegacyGroup(tbody);
+
+            // 1) 先重建起始人孔叛集（狜立於其他共用欄）
+            rebuildStartClusters(tbody);
+
+            // 2) 確定共用欄來源（若主列換人則來自舊主列），再重新排列正確順序
+            const coreSource = (rows[0] !== oldMainRow) ? oldMainRow : rows[0];
+            const coreCells = getCoreSharedCells(coreSource);
+            const rightCells = getGroupRightSharedCells(coreSource);
+
+            insertCoreCells(rows[0], coreCells);
+            const actionCell = rows[0].lastElementChild;
+            rightCells.forEach(cell => rows[0].insertBefore(cell, actionCell));
+
             if (rows[0] !== oldMainRow) {
-                const oldCells = Array.from(oldMainRow.cells);
-                const leftCells = oldCells.slice(0, 12);
-                const len = oldCells.length;
-                const rightCells = oldCells.slice(len - 4, len - 1);
-
-                const refCell = rows[0].cells[0];
-                leftCells.forEach(cell => rows[0].insertBefore(cell, refCell));
-
-                const actionCell = rows[0].cells[rows[0].cells.length - 1];
-                rightCells.forEach(cell => rows[0].insertBefore(cell, actionCell));
-
                 oldMainRow.dataset.segmentType = 'sub';
-                rows[0].dataset.segmentType = 'new';
             }
+            rows[0].dataset.segmentType = 'new';
 
             const rowCount = rows.length;
             const mainRow = rows[0];
-            
-            for (let i = 0; i < 12; i++) {
-                if (mainRow.cells[i]) mainRow.cells[i].rowSpan = rowCount;
-            }
-            const len = mainRow.cells.length;
-            if (mainRow.cells[len - 4]) mainRow.cells[len - 4].rowSpan = rowCount;
-            if (mainRow.cells[len - 3]) mainRow.cells[len - 3].rowSpan = rowCount;
-            if (mainRow.cells[len - 2]) mainRow.cells[len - 2].rowSpan = rowCount;
+            getCoreSharedCells(mainRow).forEach(c => c.rowSpan = rowCount);
+            getGroupRightSharedCells(mainRow).forEach(c => c.rowSpan = rowCount);
         }
 
         function addSegmentRow() {
@@ -1547,20 +1673,20 @@
             newRow.className = 'anomaly-row text-center';
             newRow.dataset.segmentType = 'new';
             newRow.dataset.groupId = groupId;
+            newRow.dataset.startClusterId = generateId();
             
             newRow.innerHTML = `
-                <td class="segment-drag-handle cursor-move bg-gray-50 transition-colors" title="上下拖曳整段管段"><svg class="w-5 h-5 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg></td>
-                <td class="row-number"></td>
-                <td><input type="text" placeholder="請輸入"></td>
-                <td><input type="text" placeholder="上游"></td>
-                <td><input type="text" placeholder="下游"></td>
-                <td><input type="text" placeholder="起始"></td>
-                <td><input type="text" placeholder="YYYYMMDD" maxlength="8" oninput="this.value=this.value.replace(/[^\\d]/g,'')"></td>
-                <td><input type="number" value="1"></td>
-                <td><input type="text" placeholder="路名"></td>
-                <td><input type="number" step="0.01" onchange="if(this.value !== '') this.value = parseFloat(this.value).toFixed(2);"></td>
-                <td><input type="number" onchange="if(this.value !== '') this.value = Math.round(parseFloat(this.value));"></td>
-                <td>
+                <td class="segment-drag-handle core-shared-td cursor-move bg-gray-50 transition-colors" title="上下拖曳整段管段"><svg class="w-5 h-5 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg></td>
+                <td class="row-number core-shared-td"></td>
+                <td class="core-shared-td"><input type="text" placeholder="請輸入"></td>
+                <td class="core-shared-td"><input type="text" placeholder="上游"></td>
+                <td class="core-shared-td"><input type="text" placeholder="下游"></td>
+                <td class="core-shared-td"><input type="text" placeholder="YYYYMMDD" maxlength="8" oninput="this.value=this.value.replace(/[^\\d]/g,'')"></td>
+                <td class="core-shared-td"><input type="number" value="1"></td>
+                <td class="core-shared-td"><input type="text" placeholder="路名"></td>
+                <td class="core-shared-td"><input type="number" step="0.01" onchange="if(this.value !== '') this.value = parseFloat(this.value).toFixed(2);"></td>
+                <td class="core-shared-td"><input type="number" onchange="if(this.value !== '') this.value = Math.round(parseFloat(this.value));"></td>
+                <td class="core-shared-td">
                     <select class="text-center">
                         <option value="">請選擇</option>
                         <option value="RCP">RCP</option>
@@ -1593,14 +1719,23 @@
                         <button onclick="removePhoto(this)" class="hidden text-xs text-red-500 hover:text-red-700 btn-remove">移除</button>
                     </div>
                 </td>
-                <td><input type="text" class="total-weight-input readonly-bg" readonly placeholder="自動計算"></td>
-                <td><input type="text" class="eval-grade-input readonly-bg font-bold text-center" readonly placeholder="自動計算"></td>
-                <td><input type="text" class="suggestion-input readonly-bg text-center" readonly placeholder="自動計算"></td>
+                <td class="group-right-shared-td"><input type="text" class="total-weight-input readonly-bg" readonly placeholder="自動計算"></td>
+                <td class="group-right-shared-td"><input type="text" class="eval-grade-input readonly-bg font-bold text-center" readonly placeholder="自動計算"></td>
+                <td class="group-right-shared-td"><input type="text" class="suggestion-input readonly-bg text-center" readonly placeholder="自動計算"></td>
                 <td class="flex flex-col gap-2 items-center justify-center p-2">
                     <div class="anomaly-drag-handle cursor-move text-gray-400 transition-colors" title="上下拖曳異常順序"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg></div>
                     <button onclick="deleteRow(this)" class="text-red-500 hover:text-red-700 transition duration-150" title="刪除此列"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>
                 </td>
             `;
+
+            // 插入「起始人孔」格（目前唯一叛集，於第 6 欄位置）
+            const startTd = document.createElement('td');
+            startTd.className = 'start-manhole-td';
+            const startInput = document.createElement('input');
+            startInput.type = 'text';
+            startInput.placeholder = '起始';
+            startTd.appendChild(startInput);
+            newRow.insertBefore(startTd, newRow.children[5]);
             
             newTbody.appendChild(newRow);
             table.appendChild(newTbody);
@@ -1641,6 +1776,7 @@
             if (!tbody) {
                 tbody = tbodys[tbodys.length - 1];
             }
+            migrateLegacyGroup(tbody);
             
             const groupId = tbody.dataset.groupId;
             
@@ -1648,6 +1784,9 @@
             newRow.className = 'anomaly-row text-center';
             newRow.dataset.segmentType = 'sub';
             newRow.dataset.groupId = groupId;
+            // 繼承目前管段最後一列的起始人孔叛集，與這一叛集合併
+            const lastRow = tbody.querySelector('tr.anomaly-row:last-of-type');
+            newRow.dataset.startClusterId = (lastRow ? lastRow.dataset.startClusterId : null) || groupId;
             
             newRow.innerHTML = `
                 <td><input type="text" placeholder="起點"></td>
@@ -1687,6 +1826,73 @@
             showMessage('已新增同管段異常');
         }
 
+        // 「+ 新增不同起始人孔」：同管段內新增一筆異常資料，自成一個新的起始人孔叛集（不與現有叛集合併）
+        function addSubRowDifferentStart() {
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            if(!panel) return;
+            const table = panel.querySelector('table');
+            const tbodys = table.querySelectorAll('tbody.segment-group');
+
+            if (tbodys.length === 0) {
+                showMessage('請先新增管段', true);
+                return;
+            }
+
+            let tbody = null;
+            if (lastActiveGroupId) {
+                tbody = table.querySelector(`tbody[data-group-id="${lastActiveGroupId}"]`);
+            }
+            if (!tbody) {
+                tbody = tbodys[tbodys.length - 1];
+            }
+            migrateLegacyGroup(tbody);
+
+            const groupId = tbody.dataset.groupId;
+
+            const newRow = document.createElement('tr');
+            newRow.className = 'anomaly-row text-center';
+            newRow.dataset.segmentType = 'sub';
+            newRow.dataset.groupId = groupId;
+            newRow.dataset.startClusterId = generateId(); // 新叛集，與現有行分開
+
+            newRow.innerHTML = `
+                <td><input type="text" placeholder="起點"></td>
+                <td><input type="text" placeholder="終點"></td>
+                <td><input type="text" placeholder="方位"></td>
+                <td>${getSelectHTML()}</td>
+                <td><input type="number" class="category-input readonly-bg" readonly></td>
+                <td><input type="number" class="weight-input readonly-bg" oninput="calculateSingleWeight(this.closest('tr'))" readonly></td>
+                <td>
+                    <select class="score-input" onfocus="showScoreTooltip(this)" onblur="hideScoreTooltip()" onchange="calculateSingleWeight(this.closest('tr'))">
+                        <option value=""></option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                    </select>
+                </td>
+                <td><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算"></td>
+                <td>
+                    <div class="flex flex-col items-center justify-center gap-1 min-w-[60px]">
+                        <input type="file" accept="image/*" class="hidden photo-upload-input" onchange="handlePhotoUpload(this)">
+                        <button onclick="this.previousElementSibling.click()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded btn-upload">上傳</button>
+                        <img src="" class="hidden w-12 h-12 object-cover cursor-pointer border border-gray-300 rounded shadow-sm hover:opacity-80 transition-opacity" onclick="openImagePreview(this.src)">
+                        <button onclick="removePhoto(this)" class="hidden text-xs text-red-500 hover:text-red-700 btn-remove">移除</button>
+                    </div>
+                </td>
+                <td class="flex flex-col gap-2 items-center justify-center p-2">
+                    <div class="anomaly-drag-handle cursor-move text-gray-400 transition-colors" title="上下拖曳異常順序"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg></div>
+                    <button onclick="deleteRow(this)" class="text-red-500 hover:text-red-700 transition duration-150" title="刪除此列"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>
+                </td>
+            `;
+
+            tbody.appendChild(newRow);
+            rebuildGroupRowspans(tbody);
+
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            showMessage('已新增不同起始人孔的異常資料，請填入新的起始人孔');
+        }
+
         function deleteRow(button) {
             const row = button.closest('tr');
             const tbody = row.closest('tbody');
@@ -1699,22 +1905,30 @@
                 return;
             }
 
+            migrateLegacyGroup(tbody);
+
             if (rows.length === 1) {
                 tbody.remove();
                 updateRowNumbers(table);
             } else {
+                // 若這列目前持有「起始人孔」共用格，先把它搬到同叛集的其他列，避免資料跏著被刪除的列一起不見
+                const startTd = row.querySelector(':scope > td.start-manhole-td');
+                if (startTd) {
+                    const cid = row.dataset.startClusterId;
+                    const sibling = rows.find(r => r !== row && r.dataset.startClusterId === cid);
+                    if (sibling) {
+                        sibling.insertBefore(startTd, sibling.firstElementChild);
+                    }
+                }
+
                 if (row.dataset.segmentType === 'new') {
                     const nextRow = rows.find(r => r !== row);
                     if (nextRow) {
-                        const oldCells = Array.from(row.cells);
-                        const leftCells = oldCells.slice(0, 12);
-                        const len = oldCells.length;
-                        const rightCells = oldCells.slice(len - 4, len - 1);
+                        const coreCells = getCoreSharedCells(row);
+                        const rightCells = getGroupRightSharedCells(row);
 
-                        const refCell = nextRow.cells[0];
-                        leftCells.forEach(cell => nextRow.insertBefore(cell, refCell));
-
-                        const actionCell = nextRow.cells[nextRow.cells.length - 1];
+                        insertCoreCells(nextRow, coreCells);
+                        const actionCell = nextRow.lastElementChild;
                         rightCells.forEach(cell => nextRow.insertBefore(cell, actionCell));
 
                         nextRow.dataset.segmentType = 'new';
