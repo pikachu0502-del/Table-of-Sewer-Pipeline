@@ -584,10 +584,9 @@
             }
             updateRowNumbers(); // 載入完成後重新計算一次全局編號，確保與目前專案順序一致
 
-            // 載入時一次性修復所有管段可能因先前版本 bug 而錯位的共用欄位順序（不會動到已正確的資料）
+            // 載入時一次性修復所有管段可能因先前版本 bug 而錯位的共用欄位順序、rowSpan、起始人孔叢集（不會動到已正確的資料）
             document.querySelectorAll('tbody.segment-group').forEach(tb => {
-                const mainRow = tb.querySelector('tr[data-segment-type="new"]');
-                if (mainRow) repairCoreCellOrder(mainRow);
+                rebuildGroupRowspans(tb);
             });
         }
 
@@ -1535,9 +1534,10 @@
             calculateSingleWeight(row);
         }
 
-        // 依「內容特徵」（而非位置）辨識一個 core-shared-td 儲存格代表哪個欄位，
-        // 用來修復曾經因先前版本錯誤而被搬到錯誤位置的欄位
+        // 依「內容特徵」（而非位置、也不依賴現有 class）辨識一個 <td> 代表哪個欄位，
+        // 用來修復曾經因先前版本錯誤而被搬到錯誤位置、或遭到 class 遺失的欄位
         function classifyCoreCell(cell) {
+            if (cell.classList.contains('start-manhole-td') || cell.classList.contains('group-right-shared-td')) return 'unknown';
             if (cell.querySelector('svg')) return 'drag';
             if (cell.classList.contains('row-number')) return 'rownum';
             const select = cell.querySelector('select');
@@ -1553,7 +1553,7 @@
                 if (ph === '下游') return 'down';
                 if (ph === 'YYYYMMDD') return 'date';
                 if (ph === '路名') return 'road';
-                if (input.type === 'number') {
+                if (input.type === 'number' && !input.readOnly) {
                     const onchange = input.getAttribute('onchange') || '';
                     if (onchange.indexOf('toFixed') !== -1) return 'length';
                     if (onchange.indexOf('Math.round') !== -1) return 'diameter';
@@ -1563,31 +1563,46 @@
             return 'unknown';
         }
 
-        const CORE_CANONICAL_ORDER = ['drag', 'rownum', 'field', 'up', 'down', 'date', 'count', 'road', 'length', 'diameter', 'material'];
+        const CORE_BEFORE_START_TYPES = ['drag', 'rownum', 'field', 'up', 'down'];
+        const CORE_AFTER_START_TYPES = ['date', 'count', 'road', 'length', 'diameter', 'material'];
 
-        // 修復核心共用欄位在 DOM 中的實際順序（依內容重新排列成正確順序），
-        // 解決曾因先前版本 bug 導致管材/日期等欄位錯位的問題；已經正確的列呼叫此函式不會有影響
+        // 修復主列共用欄位的順序、class 與 rowSpan：掃描整列所有 <td>（不依賴現有標記）依內容辨識，
+        // 若能完整辨識全部 11 個核心欄位就重新排列、補上 class、並修正 rowSpan；辨識不完整（例如子列）則完全不動
         function repairCoreCellOrder(row) {
-            const coreCells = Array.from(row.querySelectorAll(':scope > td.core-shared-td'));
-            if (coreCells.length === 0) return;
+            const tbody = row.closest('tbody');
+            if (!tbody) return;
+            const rowCount = tbody.querySelectorAll('tr.anomaly-row').length;
+
+            const allTds = Array.from(row.children).filter(el => el.tagName === 'TD');
             const byType = {};
-            coreCells.forEach(c => {
-                const t = classifyCoreCell(c);
-                if (!byType[t]) byType[t] = c;
+            allTds.forEach(td => {
+                const t = classifyCoreCell(td);
+                if (t !== 'unknown' && !byType[t]) byType[t] = td;
             });
-            const ordered = CORE_CANONICAL_ORDER.map(t => byType[t]).filter(Boolean);
-            if (ordered.length !== coreCells.length) return; // 辨識不完整就不動，避免誤删/誤移
+            const allTypes = CORE_BEFORE_START_TYPES.concat(CORE_AFTER_START_TYPES);
+            if (allTypes.some(t => !byType[t])) return; // 辨識不完整就不動，避免誤删/誤移
+
+            allTypes.forEach(t => {
+                byType[t].classList.add('core-shared-td');
+                byType[t].rowSpan = rowCount;
+            });
 
             const startTd = row.querySelector(':scope > td.start-manhole-td');
+            const beforeCells = CORE_BEFORE_START_TYPES.map(t => byType[t]);
+            const afterCells = CORE_AFTER_START_TYPES.map(t => byType[t]);
             if (startTd) {
-                const before = ordered.slice(0, 5);
-                const after = ordered.slice(5);
-                before.forEach(c => row.insertBefore(c, startTd));
-                const anchor = startTd.nextSibling;
-                after.forEach(c => row.insertBefore(c, anchor));
+                beforeCells.forEach(c => row.insertBefore(c, startTd));
+                // 锚點不能是即將被移動的欄位本身（否則順序會被倒置），跳過它們找到真正穩定的後續項目
+                const afterSet = new Set(afterCells);
+                let anchor = startTd.nextSibling;
+                while (anchor && afterSet.has(anchor)) anchor = anchor.nextSibling;
+                afterCells.forEach(c => row.insertBefore(c, anchor));
             } else {
-                const ref = row.firstElementChild;
-                ordered.forEach(c => row.insertBefore(c, ref));
+                const allCells = beforeCells.concat(afterCells);
+                const cellSet = new Set(allCells);
+                let anchor = row.firstElementChild;
+                while (anchor && cellSet.has(anchor)) anchor = anchor.nextSibling;
+                allCells.forEach(c => row.insertBefore(c, anchor));
             }
         }
 
@@ -1633,11 +1648,16 @@
                 const before = coreCells.slice(0, 5);
                 const after = coreCells.slice(5);
                 before.forEach(c => row.insertBefore(c, startTd));
-                const afterAnchor = startTd.nextSibling;
-                after.forEach(c => row.insertBefore(c, afterAnchor));
+                // 锚點不能是即將被移動的欄位本身（否則順序會被倒置），跳過它們找到真正穩定的後續項目
+                const afterSet = new Set(after);
+                let anchor = startTd.nextSibling;
+                while (anchor && afterSet.has(anchor)) anchor = anchor.nextSibling;
+                after.forEach(c => row.insertBefore(c, anchor));
             } else {
-                const ref = row.firstElementChild;
-                coreCells.forEach(c => row.insertBefore(c, ref));
+                const cellSet = new Set(coreCells);
+                let anchor = row.firstElementChild;
+                while (anchor && cellSet.has(anchor)) anchor = anchor.nextSibling;
+                coreCells.forEach(c => row.insertBefore(c, anchor));
             }
         }
 
