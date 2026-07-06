@@ -583,6 +583,12 @@
                 switchProject(projects[0].id);
             }
             updateRowNumbers(); // 載入完成後重新計算一次全局編號，確保與目前專案順序一致
+
+            // 載入時一次性修復所有管段可能因先前版本 bug 而錯位的共用欄位順序（不會動到已正確的資料）
+            document.querySelectorAll('tbody.segment-group').forEach(tb => {
+                const mainRow = tb.querySelector('tr[data-segment-type="new"]');
+                if (mainRow) repairCoreCellOrder(mainRow);
+            });
         }
 
         function loadAppData(event) {
@@ -1529,6 +1535,62 @@
             calculateSingleWeight(row);
         }
 
+        // 依「內容特徵」（而非位置）辨識一個 core-shared-td 儲存格代表哪個欄位，
+        // 用來修復曾經因先前版本錯誤而被搬到錯誤位置的欄位
+        function classifyCoreCell(cell) {
+            if (cell.querySelector('svg')) return 'drag';
+            if (cell.classList.contains('row-number')) return 'rownum';
+            const select = cell.querySelector('select');
+            if (select) {
+                const opts = Array.from(select.options).map(o => o.value);
+                if (opts.includes('RCP')) return 'material';
+            }
+            const input = cell.querySelector('input');
+            if (input) {
+                const ph = input.getAttribute('placeholder') || '';
+                if (ph === '請輸入') return 'field';
+                if (ph === '上游') return 'up';
+                if (ph === '下游') return 'down';
+                if (ph === 'YYYYMMDD') return 'date';
+                if (ph === '路名') return 'road';
+                if (input.type === 'number') {
+                    const onchange = input.getAttribute('onchange') || '';
+                    if (onchange.indexOf('toFixed') !== -1) return 'length';
+                    if (onchange.indexOf('Math.round') !== -1) return 'diameter';
+                    return 'count';
+                }
+            }
+            return 'unknown';
+        }
+
+        const CORE_CANONICAL_ORDER = ['drag', 'rownum', 'field', 'up', 'down', 'date', 'count', 'road', 'length', 'diameter', 'material'];
+
+        // 修復核心共用欄位在 DOM 中的實際順序（依內容重新排列成正確順序），
+        // 解決曾因先前版本 bug 導致管材/日期等欄位錯位的問題；已經正確的列呼叫此函式不會有影響
+        function repairCoreCellOrder(row) {
+            const coreCells = Array.from(row.querySelectorAll(':scope > td.core-shared-td'));
+            if (coreCells.length === 0) return;
+            const byType = {};
+            coreCells.forEach(c => {
+                const t = classifyCoreCell(c);
+                if (!byType[t]) byType[t] = c;
+            });
+            const ordered = CORE_CANONICAL_ORDER.map(t => byType[t]).filter(Boolean);
+            if (ordered.length !== coreCells.length) return; // 辨識不完整就不動，避免誤删/誤移
+
+            const startTd = row.querySelector(':scope > td.start-manhole-td');
+            if (startTd) {
+                const before = ordered.slice(0, 5);
+                const after = ordered.slice(5);
+                before.forEach(c => row.insertBefore(c, startTd));
+                const anchor = startTd.nextSibling;
+                after.forEach(c => row.insertBefore(c, anchor));
+            } else {
+                const ref = row.firstElementChild;
+                ordered.forEach(c => row.insertBefore(c, ref));
+            }
+        }
+
         // 取得一列中「整個管段共用」的欄位格（工程標別～管材等 11 欄），用 class 判斷、不依賴固定索引
         function getCoreSharedCells(row) {
             return Array.from(row.querySelectorAll(':scope > td.core-shared-td'));
@@ -1635,6 +1697,8 @@
 
             // 0) 舊版本相容：若這組是舊資料，先自動補上標記
             migrateLegacyGroup(tbody);
+            // 0.5) 修復可能因先前版本 bug 而錯位的共用欄位順序
+            repairCoreCellOrder(oldMainRow);
 
             // 1) 先重建起始人孔叛集（狜立於其他共用欄）
             rebuildStartClusters(tbody);
