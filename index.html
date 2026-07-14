@@ -3286,7 +3286,7 @@
         // 台北市資料大平臺 - 污水下水道管線 API
         const SEWER_API = 'https://data.taipei/api/v1/dataset/88157465-4794-41a2-a409-6180b3952f6b?scope=resourceAquire';
         // data.taipei 未開放跨網域(CORS)，透過公用代理轉發
-        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+        const CORS_PROXY = 'https://corsproxy.io/?url=';
         let sewerApiCache = null; // 全部管線資料只抓一次，之後重複使用
 
         function proxied(url) {
