@@ -160,6 +160,9 @@
                 <button onclick="showReportDesignView()" class="bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     提報修繕
                 </button>
+                <button onclick="showHydraulicView()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    水理計算
+                </button>
                 <button onclick="addSubRow()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     + 新增同管段異常
                 </button>
@@ -235,6 +238,18 @@
             </div>
         </div>
 
+        <div id="hydraulicHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0 hidden">
+            <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">提報修繕管段水理計算表</h1>
+            <div class="space-x-2 shrink-0">
+                <button onclick="exportHydraulicReport()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    ↓ 匯出報表
+                </button>
+                <button onclick="returnToDataEntry()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    返回填寫
+                </button>
+            </div>
+        </div>
+
         <div id="diagramHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0 hidden">
             <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">管段示意圖製作</h1>
             <div class="space-x-2 shrink-0">
@@ -263,6 +278,9 @@
         </div>
 
         <div id="reportDesignWorkspace" class="flex-1 p-8 overflow-auto hidden bg-white m-4 rounded-lg shadow-inner">
+        </div>
+
+        <div id="hydraulicWorkspace" class="flex-1 p-8 overflow-auto hidden bg-white m-4 rounded-lg shadow-inner">
         </div>
 
         <div id="diagramWorkspace" class="flex-1 p-8 overflow-auto hidden bg-gray-100 m-4 rounded-lg shadow-inner">
@@ -471,6 +489,7 @@
         let segmentTotalLengths = {};
         let diagramData = {};
         let repairAdviceData = {};
+        let hydraulicData = {};
         let promptCallback = null;
         let lastActiveGroupId = null;
         let currentDiagramGroupId = null;
@@ -553,6 +572,7 @@
                 segmentTotalLengths: segmentTotalLengths,
                 diagramData: diagramData,
                 repairAdviceData: repairAdviceData,
+                hydraulicData: hydraulicData,
                 htmlContent: Array.from(document.querySelectorAll('.project-panel')).map(p => ({id: p.id, html: p.innerHTML}))
             };
             return data;
@@ -602,6 +622,7 @@
             segmentTotalLengths = data.segmentTotalLengths || {};
             diagramData = data.diagramData || {};
             repairAdviceData = data.repairAdviceData || {};
+            hydraulicData = data.hydraulicData || {};
 
             document.getElementById('workspace').innerHTML = '';
             if (data.htmlContent) {
@@ -1579,6 +1600,7 @@
             generateProjectStatsTableSilently();
             generateSegmentDataTable();
             generateReportDesignTable();
+            generateHydraulicTable();
 
             const wb = XLSX.utils.book_new();
             const projName = projects.find(p => p.id === activeProjectId).name;
@@ -1617,6 +1639,11 @@
             const reportDesignTable = document.querySelector('#reportDesignWorkspace table');
             if (reportDesignTable) {
                 XLSX.utils.book_append_sheet(wb, createSheetFromTable(reportDesignTable, false), "提報修繕");
+            }
+
+            const hydraulicTable = document.querySelector('#hydraulicTable');
+            if (hydraulicTable) {
+                XLSX.utils.book_append_sheet(wb, createSheetFromTable(hydraulicTable, false), "水理計算");
             }
 
             XLSX.writeFile(wb, `${projName}_全案資料.xlsx`);
@@ -2584,7 +2611,7 @@
         }
 
         function hideAllViews() {
-            ['dataEntryHeader', 'workspace', 'summaryHeader', 'summaryWorkspace', 'repairSummaryHeader', 'repairSummaryWorkspace', 'projectInfoHeader', 'projectInfoWorkspace', 'segmentDataHeader', 'segmentDataWorkspace', 'reportDesignHeader', 'reportDesignWorkspace', 'diagramHeader', 'diagramWorkspace'].forEach(id => {
+            ['dataEntryHeader', 'workspace', 'summaryHeader', 'summaryWorkspace', 'repairSummaryHeader', 'repairSummaryWorkspace', 'projectInfoHeader', 'projectInfoWorkspace', 'segmentDataHeader', 'segmentDataWorkspace', 'reportDesignHeader', 'reportDesignWorkspace', 'hydraulicHeader', 'hydraulicWorkspace', 'diagramHeader', 'diagramWorkspace'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById('diagramWorkspace').classList.remove('flex');
@@ -2923,6 +2950,189 @@
             if (!activeProjectId) { showMessage('請先選擇專案', true); return; }
             generateReportDesignTable();
             exportReportDesignReport();
+        }
+
+        // ===== 水理計算 =====
+        // 依原管徑查板帶高度（同 Excel VLOOKUP 近似）：<200→5.5、200~349→8、≥350→13
+        function lookupBandHeight(d1) {
+            const c = parseFloat(d1);
+            if (!isFinite(c)) return '';
+            if (c >= 350) return 13;
+            if (c >= 200) return 8;
+            return 5.5;
+        }
+        // 流量比→水深比對照表（Excel U2:V25，近似查找：取 ≤ 值的最大者）
+        const DEPTH_RATIO_TABLE = [[0,0],[0.005,0.05],[0.021,0.1],[0.049,0.15],[0.088,0.2],[0.137,0.25],[0.196,0.3],[0.25,0.341],[0.3,0.376],[0.334,0.398],[0.35,0.408],[0.4,0.44],[0.45,0.47],[0.5,0.5],[0.55,0.529],[0.6,0.558],[0.65,0.587],[0.7,0.616],[0.75,0.646],[0.8,0.677],[0.85,0.708],[0.9,0.742],[0.95,0.778],[1,0.82]];
+        function lookupDepthRatio(ratio) {
+            if (!isFinite(ratio)) return null;
+            let res = null;
+            for (const [k, v] of DEPTH_RATIO_TABLE) {
+                if (ratio >= k) res = v; else break;
+            }
+            return res;
+        }
+
+        // 取出某管段（tbody）的統計表基本資料
+        function getSegmentInfoForHydraulic(tbody) {
+            const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
+            if (!mainRow) return null;
+            const info = { up: '', down: '', diameter: '', length: '' };
+            Array.from(mainRow.children).forEach(td => {
+                if (td.tagName !== 'TD') return;
+                const t = classifyCoreCell(td);
+                const el = td.querySelector('input, select');
+                const v = el ? el.value : '';
+                if (t === 'up') info.up = v;
+                else if (t === 'down') info.down = v;
+                else if (t === 'diameter') info.diameter = v;
+                else if (t === 'length') info.length = v;
+            });
+            const gradeEl = mainRow.querySelector('.eval-grade-input');
+            info.grade = gradeEl ? (gradeEl.value || '').trim() : '';
+            return info;
+        }
+
+        // 計算單一管段水理，回傳所有欄位數值
+        function computeHydraulic(seg, saved) {
+            const C = parseFloat(seg.diameter);
+            const L = parseFloat(seg.length);
+            const H = parseFloat(saved.H);
+            const U = parseFloat(saved.U);
+            const D = parseFloat(saved.D);
+            const N1 = parseFloat(saved.N1);
+            const N2 = parseFloat(saved.N2);
+            const r = { E: '', i: '', K: '', L08: '', N05: '', O08: '', P: '' };
+            if (isFinite(C) && isFinite(H)) r.E = Math.round(C - 2 * H);
+            let iVal = NaN;
+            if (isFinite(U) && isFinite(D) && isFinite(L) && L !== 0) { iVal = Math.abs(U - D) / L; r.i = iVal; }
+            const E = r.E;
+            if (isFinite(iVal) && iVal > 0) {
+                const sqrtI = Math.sqrt(iVal);
+                if (isFinite(C) && isFinite(N1) && N1 !== 0) {
+                    const R05 = 0.25 * C / 1000, A05 = 0.3927 * Math.pow(C/1000, 2);
+                    const R08 = 0.3042 * C / 1000, A08 = 0.6736 * Math.pow(C/1000, 2);
+                    r.K = 86400 * A05 * (1/N1) * Math.pow(R05, 2/3) * sqrtI;
+                    r.L08 = 86400 * A08 * (1/N1) * Math.pow(R08, 2/3) * sqrtI;
+                }
+                if (isFinite(E) && isFinite(N2) && N2 !== 0) {
+                    const R05e = 0.25 * E / 1000, A05e = 0.3927 * Math.pow(E/1000, 2);
+                    const R08e = 0.3042 * E / 1000, A08e = 0.6736 * Math.pow(E/1000, 2);
+                    r.N05 = 86400 * A05e * (1/N2) * Math.pow(R05e, 2/3) * sqrtI;
+                    r.O08 = 86400 * A08e * (1/N2) * Math.pow(R08e, 2/3) * sqrtI;
+                }
+                if (isFinite(r.K) && isFinite(r.N05) && r.N05 !== 0) {
+                    const p = lookupDepthRatio(r.K / (2 * r.N05));
+                    if (p !== null) r.P = p;
+                }
+            }
+            return r;
+        }
+
+        function fmt(v, dp) {
+            if (v === '' || v === null || v === undefined || !isFinite(v)) return '';
+            return Number(v).toFixed(dp);
+        }
+
+        function showHydraulicView() {
+            hideAllViews();
+            document.getElementById('hydraulicHeader').classList.remove('hidden');
+            document.getElementById('hydraulicWorkspace').classList.remove('hidden');
+            generateHydraulicTable();
+        }
+
+        function generateHydraulicTable() {
+            const ws = document.getElementById('hydraulicWorkspace');
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            const src = panel ? panel.querySelector('table') : null;
+            if (!src) { ws.innerHTML = '<p class="text-gray-500 p-4">尚無資料</p>'; return; }
+
+            const KEEP = ['A-1', 'B-1', 'C-1'];
+            const segs = [];
+            src.querySelectorAll('tbody.segment-group').forEach(tb => {
+                const info = getSegmentInfoForHydraulic(tb);
+                if (info && KEEP.includes(info.grade)) segs.push({ gid: tb.dataset.groupId, info });
+            });
+
+            if (segs.length === 0) {
+                ws.innerHTML = '<p class="text-gray-500 p-4">本專案目前沒有評估分級為 A-1、B-1、C-1 的管段。</p>';
+                return;
+            }
+
+            if (!hydraulicData[activeProjectId]) hydraulicData[activeProjectId] = {};
+
+            const th = (t) => `<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm whitespace-nowrap">${t}</th>`;
+            let html = '<div class="overflow-x-auto"><table id="hydraulicTable" class="border-collapse text-center text-sm">'
+                + '<thead><tr>'
+                + th('人孔編號<br>(上游)') + th('人孔編號<br>(下游)') + th('原管徑<br>D1(mm)') + th('板帶高度<br>H(mm)')
+                + th('修繕後管徑<br>D2(mm)') + th('上游渠底<br>高程U(m)') + th('下游渠底<br>高程D(m)') + th('檢視長度<br>L(m)')
+                + th('坡度 S(%)') + th('粗糙係數<br>N1(修繕前)') + th('0.5D流量<br>前(CMD)') + th('0.8D流量<br>前(CMD)')
+                + th('粗糙係數<br>N2(修繕後)') + th('0.5D流量<br>後(CMD)') + th('0.8D流量<br>後(CMD)') + th('0.5D<br>水深比')
+                + '</tr></thead><tbody>';
+
+            segs.forEach(({ gid, info }) => {
+                const saved = hydraulicData[activeProjectId][gid] || {};
+                if (saved.H === undefined || saved.H === '') saved.H = lookupBandHeight(info.diameter);
+                if (saved.N1 === undefined || saved.N1 === '') saved.N1 = 0.017;
+                if (saved.N2 === undefined || saved.N2 === '') saved.N2 = 0.010;
+                hydraulicData[activeProjectId][gid] = saved;
+
+                const tdRO = (v) => `<td class="border border-gray-400 px-2 py-1 bg-gray-50 whitespace-nowrap">${v ?? ''}</td>`;
+                const inp = (field, val, step) => `<td class="border border-gray-400 p-0"><input type="number" ${step?`step="${step}"`:''} value="${val ?? ''}" class="w-24 px-2 py-1 text-center bg-yellow-50 outline-none focus:ring-2 focus:ring-cyan-500" oninput="updateHydraulic('${gid}','${field}',this.value)"></td>`;
+                const tdCalc = (cls) => `<td class="border border-gray-400 px-2 py-1 bg-white whitespace-nowrap ${cls}"></td>`;
+
+                html += `<tr data-gid="${gid}">`
+                    + tdRO(info.up) + tdRO(info.down) + tdRO(info.diameter)
+                    + inp('H', saved.H, '0.1')
+                    + tdCalc('h-E') + inp('U', saved.U, '0.001') + inp('D', saved.D, '0.001') + tdRO(info.length)
+                    + tdCalc('h-i') + inp('N1', saved.N1, '0.001') + tdCalc('h-K') + tdCalc('h-L08')
+                    + inp('N2', saved.N2, '0.001') + tdCalc('h-N05') + tdCalc('h-O08') + tdCalc('h-P')
+                    + '</tr>';
+            });
+            html += '</tbody></table></div>';
+            html += '<p class="text-gray-500 text-xs mt-3">說明：灰底欄位由統計表帶入（唯讀）；黃底欄位可自行輸入；坡度 i、修繕後管徑、各流量與水深比皆依水理表公式自動計算。坡度 S =(上游渠底高程U − 下游渠底高程D) / 檢視長度L。</p>';
+            ws.innerHTML = html;
+
+            segs.forEach(({ gid, info }) => recalcHydraulicRow(gid, info));
+        }
+
+        function recalcHydraulicRow(gid, info) {
+            const tr = document.querySelector(`#hydraulicTable tr[data-gid="${gid}"]`);
+            if (!tr) return;
+            const saved = hydraulicData[activeProjectId][gid] || {};
+            const r = computeHydraulic(info, saved);
+            tr.querySelector('.h-E').textContent = fmt(r.E, 0);
+            tr.querySelector('.h-i').textContent = (r.i === '' ? '' : (Number(r.i) * 100).toFixed(3));
+            tr.querySelector('.h-K').textContent = fmt(r.K, 1);
+            tr.querySelector('.h-L08').textContent = fmt(r.L08, 1);
+            tr.querySelector('.h-N05').textContent = fmt(r.N05, 1);
+            tr.querySelector('.h-O08').textContent = fmt(r.O08, 1);
+            tr.querySelector('.h-P').textContent = (r.P === '' ? '' : Number(r.P).toFixed(3));
+        }
+
+        function updateHydraulic(gid, field, value) {
+            if (!hydraulicData[activeProjectId]) hydraulicData[activeProjectId] = {};
+            if (!hydraulicData[activeProjectId][gid]) hydraulicData[activeProjectId][gid] = {};
+            hydraulicData[activeProjectId][gid][field] = value;
+            // 重新取得該管段統計資料以重算
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            const tb = panel ? panel.querySelector(`tbody[data-group-id="${gid}"]`) : null;
+            const info = tb ? getSegmentInfoForHydraulic(tb) : null;
+            if (info) recalcHydraulicRow(gid, info);
+            scheduleAutoSave();
+        }
+
+        function exportHydraulicReport() {
+            const table = document.querySelector('#hydraulicTable');
+            if (!table) { showMessage('無資料可匯出', true); return; }
+            const projName = (projects.find(p => p.id === activeProjectId) || {}).name || '報表';
+            exportToExcel(table, `${projName}_提報修繕管段水理計算表`);
+            showMessage('已匯出水理計算表 (Excel)');
+        }
+
+        function exportHydraulicFromSidebar() {
+            if (!activeProjectId) { showMessage('請先選擇專案', true); return; }
+            generateHydraulicTable();
+            exportHydraulicReport();
         }
         function showRepairSummaryView() {
             hideAllViews();
