@@ -3003,6 +3003,14 @@
             const N2 = parseFloat(saved.N2);
             const r = { E: '', i: '', K: '', L08: '', N05: '', O08: '', P: '' };
             if (isFinite(C) && isFinite(H)) r.E = Math.round(C - 2 * H);
+            // U 或 D 輸入 "-"（或 0/空白）代表無數據，後續計算欄位呈現「無數據」
+            const rawU = (saved.U === undefined ? '' : String(saved.U).trim());
+            const rawD = (saved.D === undefined ? '' : String(saved.D).trim());
+            const noData = rawU === '-' || rawD === '-' || rawU === '' || rawD === '' || U === 0 || D === 0 || !isFinite(U) || !isFinite(D);
+            if (noData) {
+                r.noData = true;
+                return r;
+            }
             let iVal = NaN;
             if (isFinite(U) && isFinite(D) && isFinite(L) && L !== 0) { iVal = Math.abs(U - D) / L; r.i = iVal; }
             const E = r.E;
@@ -3100,6 +3108,14 @@
             if (!tr) return;
             const saved = hydraulicData[activeProjectId][gid] || {};
             const r = computeHydraulic(info, saved);
+            if (r.noData) {
+                ['.h-i', '.h-K', '.h-L08', '.h-N05', '.h-O08', '.h-P'].forEach(sel => {
+                    const cell = tr.querySelector(sel);
+                    if (cell) cell.textContent = '無數據';
+                });
+                tr.querySelector('.h-E').textContent = fmt(r.E, 0);
+                return;
+            }
             tr.querySelector('.h-E').textContent = fmt(r.E, 0);
             tr.querySelector('.h-i').textContent = (r.i === '' ? '' : (Number(r.i) * 100).toFixed(3));
             tr.querySelector('.h-K').textContent = fmt(r.K, 1);
