@@ -217,9 +217,10 @@
         <div id="segmentDataHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0 hidden">
             <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">檢視管段資料</h1>
             <div class="space-x-2 shrink-0">
-                <button onclick="fetchTotalLengthsFromAPI()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    ⟳ 自動帶入總管長
+                <button onclick="document.getElementById('sewerCsvInput').click()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    ⟳ 上傳管線CSV帶入總管長
                 </button>
+                <input type="file" id="sewerCsvInput" accept=".csv" class="hidden" onchange="handleSewerCsvUpload(this)">
                 <button onclick="exportSegmentDataReport()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     ↓ 匯出報表
                 </button>
@@ -3283,77 +3284,83 @@
             document.getElementById('segmentDataWorkspace').innerHTML = html;
         }
 
-        // 台北市資料大平臺 - 污水下水道管線 API
-        const SEWER_API = 'https://data.taipei/api/v1/dataset/88157465-4794-41a2-a409-6180b3952f6b?scope=resourceAquire';
-        // data.taipei 未開放跨網域(CORS)，透過公用代理轉發
-        const CORS_PROXY = 'https://corsproxy.io/?url=';
-        let sewerApiCache = null; // 全部管線資料只抓一次，之後重複使用
-
-        function proxied(url) {
-            return CORS_PROXY + encodeURIComponent(url);
-        }
-
-        // 取物件中「包含指定關鍵字」的第一個欄位值（因欄位命名可能略有差異，以模糊比對較穩健）
-        function pickField(obj, keywords) {
-            for (const key of Object.keys(obj)) {
-                if (keywords.some(k => key.includes(k))) {
-                    const v = obj[key];
-                    if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
-                }
-            }
-            return '';
-        }
-
-        // 一次抓取全部管線資料（分頁，每頁 1000 筆），結果快取於記憶體
-        async function loadAllSewerData(onProgress) {
-            if (sewerApiCache) return sewerApiCache;
-            const all = [];
-            let offset = 0;
-            const limit = 1000;
-            let total = Infinity;
-            while (offset < total) {
-                const url = `${SEWER_API}&limit=${limit}&offset=${offset}`;
-                const resp = await fetch(proxied(url));
-                if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
-                const json = await resp.json();
-                const res = (json && json.result) ? json.result : {};
-                const batch = res.results || [];
-                if (typeof res.count === 'number') total = res.count;
-                all.push(...batch);
-                offset += limit;
-                if (onProgress) onProgress(all.length, total);
-                if (batch.length === 0) break;
-            }
-            sewerApiCache = all;
-            return all;
-        }
+        // 台北市污水下水道管線 - 手動上傳 CSV 帶入總管長
+        let sewerCsvCache = null; // 解析後的管線資料 [{up, down, len}]
 
         // 人孔編號正規化：去除非英數字（例如 4053-0866 → 40530866），方便比對
         function normManhole(s) {
             return String(s || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
         }
 
-        // 依上游、下游人孔在資料中找出管線長度（雙向、含正規化比對）
+        // 解析 CSV 一行（處理引號欄位）
+        function parseCsvLine(line) {
+            const out = [];
+            let cur = '', inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const c = line[i];
+                if (inQ) {
+                    if (c === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+                    else cur += c;
+                } else {
+                    if (c === '"') inQ = true;
+                    else if (c === ',') { out.push(cur); cur = ''; }
+                    else cur += c;
+                }
+            }
+            out.push(cur);
+            return out;
+        }
+
+        function parseSewerCsv(text) {
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+            if (lines.length < 2) return [];
+            const header = parseCsvLine(lines[0]).map(h => h.trim());
+            const idxUp = header.findIndex(h => h.includes('上游人孔') || h.includes('上游'));
+            const idxDown = header.findIndex(h => h.includes('下游人孔') || h.includes('下游'));
+            const idxLen = header.findIndex(h => h.includes('管線長度') || h.includes('管長') || h.includes('長度'));
+            if (idxUp < 0 || idxDown < 0 || idxLen < 0) throw new Error('CSV 欄位不符（需含上游人孔、下游人孔、管線長度）');
+            const recs = [];
+            for (let i = 1; i < lines.length; i++) {
+                const c = parseCsvLine(lines[i]);
+                const up = (c[idxUp] || '').trim();
+                const down = (c[idxDown] || '').trim();
+                const len = parseFloat(c[idxLen]);
+                if (up && down && isFinite(len)) recs.push({ up: normManhole(up), down: normManhole(down), len });
+            }
+            return recs;
+        }
+
         function matchPipeLength(records, up, down) {
             const U = normManhole(up), D = normManhole(down);
             for (const rec of records) {
-                const ru = normManhole(pickField(rec, ['上游人孔', '上游']));
-                const rd = normManhole(pickField(rec, ['下游人孔', '下游']));
-                if ((ru === U && rd === D) || (ru === D && rd === U)) {
-                    const len = pickField(rec, ['管線長度', '管長', '長度']);
-                    const n = parseFloat(len);
-                    if (isFinite(n)) return n;
-                }
+                if ((rec.up === U && rec.down === D) || (rec.up === D && rec.down === U)) return rec.len;
             }
             return null;
         }
 
-        async function fetchTotalLengthsFromAPI() {
-            if (!activeProjectId) { showMessage('請先選擇專案', true); return; }
-            const table = document.getElementById('segmentDataTableData');
-            if (!table) { showMessage('尚無資料', true); return; }
+        function handleSewerCsvUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (!activeProjectId) { showMessage('請先選擇專案', true); input.value = ''; return; }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    sewerCsvCache = parseSewerCsv(e.target.result);
+                } catch (err) {
+                    showMessage('CSV 解析失敗：' + (err && err.message || err), true);
+                    input.value = '';
+                    return;
+                }
+                if (sewerCsvCache.length === 0) { showMessage('CSV 沒有可用資料', true); input.value = ''; return; }
+                applyTotalLengthsFromCsv();
+                input.value = '';
+            };
+            reader.readAsText(file, 'utf-8');
+        }
 
+        function applyTotalLengthsFromCsv() {
             const panel = document.querySelector(`#panel-${activeProjectId}`);
+            if (!panel) return;
             const rows = Array.from(panel.querySelectorAll('tr[data-segment-type="new"]'));
             const jobs = rows.map(r => {
                 const inputs = r.querySelectorAll('input, select');
@@ -3362,20 +3369,9 @@
 
             if (jobs.length === 0) { showMessage('請先於統計表填寫上游、下游人孔編號', true); return; }
 
-            let records;
-            try {
-                showMessage('下載管線資料中…（首次較久）');
-                records = await loadAllSewerData((n, t) => {
-                    showMessage(`下載管線資料中… ${n}/${isFinite(t) ? t : '?'}`);
-                });
-            } catch (e) {
-                showMessage('下載失敗：' + (e && e.message || e), true);
-                return;
-            }
-
             let ok = 0, fail = 0;
             jobs.forEach(job => {
-                const len = matchPipeLength(records, job.up, job.down);
+                const len = matchPipeLength(sewerCsvCache, job.up, job.down);
                 if (len !== null) {
                     if (!segmentTotalLengths[activeProjectId]) segmentTotalLengths[activeProjectId] = {};
                     segmentTotalLengths[activeProjectId][job.groupId] = len;
