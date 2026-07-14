@@ -3285,7 +3285,13 @@
 
         // 台北市資料大平臺 - 污水下水道管線 API
         const SEWER_API = 'https://data.taipei/api/v1/dataset/88157465-4794-41a2-a409-6180b3952f6b?scope=resourceAquire';
+        // data.taipei 未開放跨網域(CORS)，透過公用代理轉發
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
         let sewerApiCache = null; // 全部管線資料只抓一次，之後重複使用
+
+        function proxied(url) {
+            return CORS_PROXY + encodeURIComponent(url);
+        }
 
         // 取物件中「包含指定關鍵字」的第一個欄位值（因欄位命名可能略有差異，以模糊比對較穩健）
         function pickField(obj, keywords) {
@@ -3307,7 +3313,7 @@
             let total = Infinity;
             while (offset < total) {
                 const url = `${SEWER_API}&limit=${limit}&offset=${offset}`;
-                const resp = await fetch(url);
+                const resp = await fetch(proxied(url));
                 if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
                 const json = await resp.json();
                 const res = (json && json.result) ? json.result : {};
