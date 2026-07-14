@@ -1578,6 +1578,7 @@
             generateRepairSummaryTable();
             generateProjectStatsTableSilently();
             generateSegmentDataTable();
+            generateReportDesignTable();
 
             const wb = XLSX.utils.book_new();
             const projName = projects.find(p => p.id === activeProjectId).name;
@@ -1611,6 +1612,11 @@
             const statsTable = document.getElementById('projectStatsTable');
             if (statsTable) {
                 XLSX.utils.book_append_sheet(wb, createSheetFromTable(statsTable, false), "檢視長度統計");
+            }
+
+            const reportDesignTable = document.querySelector('#reportDesignWorkspace table');
+            if (reportDesignTable) {
+                XLSX.utils.book_append_sheet(wb, createSheetFromTable(reportDesignTable, false), "提報修繕");
             }
 
             XLSX.writeFile(wb, `${projName}_全案資料.xlsx`);
@@ -2912,6 +2918,12 @@
             showMessage('已匯出提報修繕報表 (Excel)');
         }
 
+        // 從側邊欄匯出：先產生報表內容（不需切換到該頁）再匯出
+        function exportReportDesignFromSidebar() {
+            if (!activeProjectId) { showMessage('請先選擇專案', true); return; }
+            generateReportDesignTable();
+            exportReportDesignReport();
+        }
         function showRepairSummaryView() {
             hideAllViews();
             document.getElementById('repairSummaryHeader').classList.remove('hidden');
