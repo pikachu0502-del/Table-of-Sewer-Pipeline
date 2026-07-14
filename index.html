@@ -217,6 +217,9 @@
         <div id="segmentDataHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0 hidden">
             <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">檢視管段資料</h1>
             <div class="space-x-2 shrink-0">
+                <button onclick="fetchTotalLengthsFromAPI()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    ⟳ 自動帶入總管長
+                </button>
                 <button onclick="exportSegmentDataReport()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     ↓ 匯出報表
                 </button>
@@ -3278,6 +3281,92 @@
             `;
 
             document.getElementById('segmentDataWorkspace').innerHTML = html;
+        }
+
+        // 台北市資料大平臺 - 污水下水道管線 API
+        const SEWER_API = 'https://data.taipei/api/v1/dataset/88157465-4794-41a2-a409-6180b3952f6b?scope=resourceAquire';
+
+        // 取物件中「包含指定關鍵字」的第一個欄位值（因欄位命名可能略有差異，以模糊比對較穩健）
+        function pickField(obj, keywords) {
+            for (const key of Object.keys(obj)) {
+                if (keywords.some(k => key.includes(k))) {
+                    const v = obj[key];
+                    if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
+                }
+            }
+            return '';
+        }
+
+        async function apiQuery(keyword) {
+            const url = `${SEWER_API}&q=${encodeURIComponent(keyword)}&limit=1000`;
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
+            const json = await resp.json();
+            return (json && json.result && json.result.results) ? json.result.results : [];
+        }
+
+        // 依上游、下游人孔在 API 資料中找出管線長度（雙向比對）
+        function matchPipeLength(records, up, down) {
+            const U = up.trim(), D = down.trim();
+            for (const rec of records) {
+                const ru = pickField(rec, ['上游人孔', '上游']);
+                const rd = pickField(rec, ['下游人孔', '下游']);
+                if ((ru === U && rd === D) || (ru === D && rd === U)) {
+                    const len = pickField(rec, ['管線長度', '管長', '長度']);
+                    const n = parseFloat(len);
+                    if (isFinite(n)) return n;
+                }
+            }
+            return null;
+        }
+
+        async function fetchTotalLengthsFromAPI() {
+            if (!activeProjectId) { showMessage('請先選擇專案', true); return; }
+            const table = document.getElementById('segmentDataTableData');
+            if (!table) { showMessage('尚無資料', true); return; }
+
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            const rows = Array.from(panel.querySelectorAll('tr[data-segment-type="new"]'));
+            const jobs = rows.map(r => {
+                const inputs = r.querySelectorAll('input, select');
+                return { groupId: r.dataset.groupId, up: (inputs[1]?.value || '').trim(), down: (inputs[2]?.value || '').trim() };
+            }).filter(j => j.up && j.down);
+
+            if (jobs.length === 0) { showMessage('請先於統計表填寫上游、下游人孔編號', true); return; }
+
+            showMessage('查詢中，請稍候…');
+            let ok = 0, fail = 0;
+            const cache = {};
+            try {
+                for (const job of jobs) {
+                    try {
+                        if (!cache[job.up]) cache[job.up] = await apiQuery(job.up);
+                        let len = matchPipeLength(cache[job.up], job.up, job.down);
+                        if (len === null) {
+                            // 改用下游關鍵字再查一次
+                            if (!cache[job.down]) cache[job.down] = await apiQuery(job.down);
+                            len = matchPipeLength(cache[job.down], job.up, job.down);
+                        }
+                        if (len !== null) {
+                            if (!segmentTotalLengths[activeProjectId]) segmentTotalLengths[activeProjectId] = {};
+                            segmentTotalLengths[activeProjectId][job.groupId] = len;
+                            ok++;
+                        } else {
+                            fail++;
+                        }
+                    } catch (e) {
+                        console.error('查詢失敗', job, e);
+                        fail++;
+                    }
+                }
+            } catch (e) {
+                showMessage('查詢失敗：' + (e && e.message || e), true);
+                return;
+            }
+
+            generateSegmentDataTable();
+            scheduleAutoSave();
+            showMessage(`完成：成功帶入 ${ok} 筆${fail ? `，${fail} 筆查無資料` : ''}`);
         }
 
         function exportSegmentDataReport() {
