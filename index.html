@@ -3285,6 +3285,7 @@
 
         // 台北市資料大平臺 - 污水下水道管線 API
         const SEWER_API = 'https://data.taipei/api/v1/dataset/88157465-4794-41a2-a409-6180b3952f6b?scope=resourceAquire';
+        let sewerApiCache = null; // 全部管線資料只抓一次，之後重複使用
 
         // 取物件中「包含指定關鍵字」的第一個欄位值（因欄位命名可能略有差異，以模糊比對較穩健）
         function pickField(obj, keywords) {
@@ -3297,20 +3298,41 @@
             return '';
         }
 
-        async function apiQuery(keyword) {
-            const url = `${SEWER_API}&q=${encodeURIComponent(keyword)}&limit=1000`;
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
-            const json = await resp.json();
-            return (json && json.result && json.result.results) ? json.result.results : [];
+        // 一次抓取全部管線資料（分頁，每頁 1000 筆），結果快取於記憶體
+        async function loadAllSewerData(onProgress) {
+            if (sewerApiCache) return sewerApiCache;
+            const all = [];
+            let offset = 0;
+            const limit = 1000;
+            let total = Infinity;
+            while (offset < total) {
+                const url = `${SEWER_API}&limit=${limit}&offset=${offset}`;
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
+                const json = await resp.json();
+                const res = (json && json.result) ? json.result : {};
+                const batch = res.results || [];
+                if (typeof res.count === 'number') total = res.count;
+                all.push(...batch);
+                offset += limit;
+                if (onProgress) onProgress(all.length, total);
+                if (batch.length === 0) break;
+            }
+            sewerApiCache = all;
+            return all;
         }
 
-        // 依上游、下游人孔在 API 資料中找出管線長度（雙向比對）
+        // 人孔編號正規化：去除非英數字（例如 4053-0866 → 40530866），方便比對
+        function normManhole(s) {
+            return String(s || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+        }
+
+        // 依上游、下游人孔在資料中找出管線長度（雙向、含正規化比對）
         function matchPipeLength(records, up, down) {
-            const U = up.trim(), D = down.trim();
+            const U = normManhole(up), D = normManhole(down);
             for (const rec of records) {
-                const ru = pickField(rec, ['上游人孔', '上游']);
-                const rd = pickField(rec, ['下游人孔', '下游']);
+                const ru = normManhole(pickField(rec, ['上游人孔', '上游']));
+                const rd = normManhole(pickField(rec, ['下游人孔', '下游']));
                 if ((ru === U && rd === D) || (ru === D && rd === U)) {
                     const len = pickField(rec, ['管線長度', '管長', '長度']);
                     const n = parseFloat(len);
@@ -3334,35 +3356,28 @@
 
             if (jobs.length === 0) { showMessage('請先於統計表填寫上游、下游人孔編號', true); return; }
 
-            showMessage('查詢中，請稍候…');
-            let ok = 0, fail = 0;
-            const cache = {};
+            let records;
             try {
-                for (const job of jobs) {
-                    try {
-                        if (!cache[job.up]) cache[job.up] = await apiQuery(job.up);
-                        let len = matchPipeLength(cache[job.up], job.up, job.down);
-                        if (len === null) {
-                            // 改用下游關鍵字再查一次
-                            if (!cache[job.down]) cache[job.down] = await apiQuery(job.down);
-                            len = matchPipeLength(cache[job.down], job.up, job.down);
-                        }
-                        if (len !== null) {
-                            if (!segmentTotalLengths[activeProjectId]) segmentTotalLengths[activeProjectId] = {};
-                            segmentTotalLengths[activeProjectId][job.groupId] = len;
-                            ok++;
-                        } else {
-                            fail++;
-                        }
-                    } catch (e) {
-                        console.error('查詢失敗', job, e);
-                        fail++;
-                    }
-                }
+                showMessage('下載管線資料中…（首次較久）');
+                records = await loadAllSewerData((n, t) => {
+                    showMessage(`下載管線資料中… ${n}/${isFinite(t) ? t : '?'}`);
+                });
             } catch (e) {
-                showMessage('查詢失敗：' + (e && e.message || e), true);
+                showMessage('下載失敗：' + (e && e.message || e), true);
                 return;
             }
+
+            let ok = 0, fail = 0;
+            jobs.forEach(job => {
+                const len = matchPipeLength(records, job.up, job.down);
+                if (len !== null) {
+                    if (!segmentTotalLengths[activeProjectId]) segmentTotalLengths[activeProjectId] = {};
+                    segmentTotalLengths[activeProjectId][job.groupId] = len;
+                    ok++;
+                } else {
+                    fail++;
+                }
+            });
 
             generateSegmentDataTable();
             scheduleAutoSave();
