@@ -3075,7 +3075,7 @@
             const th = (t) => `<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm whitespace-nowrap">${t}</th>`;
             let html = '<div class="overflow-x-auto"><table id="hydraulicTable" class="border-collapse text-center text-sm">'
                 + '<thead><tr>'
-                + th('人孔編號<br>(上游)') + th('人孔編號<br>(下游)') + th('原管徑<br>D1(mm)') + th('板帶高度<br>H(mm)')
+                + th('管段編號') + th('人孔編號<br>(上游)') + th('人孔編號<br>(下游)') + th('原管徑<br>D1(mm)') + th('板帶高度<br>H(mm)')
                 + th('修繕後管徑<br>D2(mm)') + th('上游渠底<br>高程U(m)') + th('下游渠底<br>高程D(m)') + th('檢視長度<br>L(m)')
                 + th('坡度 S(%)') + th('粗糙係數<br>N1(修繕前)') + th('0.5D流量<br>前(CMD)') + th('0.8D流量<br>前(CMD)')
                 + th('粗糙係數<br>N2(修繕後)') + th('0.5D流量<br>後(CMD)') + th('0.8D流量<br>後(CMD)') + th('0.5D<br>水深比')
@@ -3093,6 +3093,7 @@
                 const tdCalc = (cls) => `<td class="border border-gray-400 px-2 py-1 bg-white whitespace-nowrap ${cls}"></td>`;
 
                 html += `<tr data-gid="${gid}">`
+                    + tdRO(`${info.up || ''}${(info.up && info.down) ? '~' : ''}${info.down || ''}`)
                     + tdRO(info.up) + tdRO(info.down) + tdRO(info.diameter)
                     + inp('H', saved.H, '0.1')
                     + tdCalc('h-E') + inp('U', saved.U, '0.001') + inp('D', saved.D, '0.001') + tdRO(info.length)
