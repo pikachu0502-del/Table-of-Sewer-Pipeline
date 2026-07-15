@@ -2993,6 +2993,8 @@
             });
             const gradeEl = mainRow.querySelector('.eval-grade-input');
             info.grade = gradeEl ? (gradeEl.value || '').trim() : '';
+            const rowNumEl = mainRow.querySelector('.row-number');
+            info.rowNum = rowNumEl ? (rowNumEl.textContent || '').trim() : '';
             return info;
         }
 
@@ -3093,7 +3095,7 @@
                 const tdCalc = (cls) => `<td class="border border-gray-400 px-2 py-1 bg-white whitespace-nowrap ${cls}"></td>`;
 
                 html += `<tr data-gid="${gid}">`
-                    + tdRO(`${info.up || ''}${(info.up && info.down) ? '~' : ''}${info.down || ''}`)
+                    + tdRO(info.rowNum)
                     + tdRO(info.up) + tdRO(info.down) + tdRO(info.diameter)
                     + inp('H', saved.H, '0.1')
                     + tdCalc('h-E') + inp('U', saved.U, '0.001') + inp('D', saved.D, '0.001') + tdRO(info.length)
