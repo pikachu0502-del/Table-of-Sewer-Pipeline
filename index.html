@@ -654,6 +654,7 @@
 
                     const table = div.querySelector('table');
                     if (table) {
+                        ensureProjectSortButton(table);
                         new Sortable(table, {
                             draggable: 'tbody.segment-group',
                             handle: '.segment-drag-handle',
@@ -1879,7 +1880,7 @@
                         <tr>
                             <th rowspan="3" class="w-8 z-20 text-center">段</th>
                             <th rowspan="3" class="col-id text-center">編號</th>
-                            <th rowspan="3" class="col-project text-center">工程標別</th>
+                            <th rowspan="3" class="col-project text-center"><div class="flex items-center justify-center gap-1">工程標別<button onclick="sortByProject()" title="依工程標別排序" class="text-gray-400 hover:text-blue-600 leading-none">⇅</button></div></th>
                             <th colspan="3" class="text-center">管段編號</th>
                             <th rowspan="3" class="col-date text-center">檢視日期</th>
                             <th rowspan="3" class="col-small text-center">檢視次第</th>
@@ -1946,6 +1947,44 @@
                     <option value="PVC裡襯剝離(含節O型環)">PVC裡襯剝離(含節O型環)</option>
                 </select>
             `;
+        }
+
+        // 確保載入的舊表格也有「工程標別」排序鈕（舊存檔以 innerHTML 回復，不含新鈕）
+        function ensureProjectSortButton(table){
+            const th = table.querySelector('thead th.col-project');
+            if(!th || th.querySelector('button')) return;
+            th.innerHTML = '<div class="flex items-center justify-center gap-1">工程標別<button onclick="sortByProject()" title="依工程標別排序" class="text-gray-400 hover:text-blue-600 leading-none">⇅</button></div>';
+        }
+
+        let projectSortAsc = true;
+        function sortByProject() {
+            const panel = document.querySelector('#panel-'+activeProjectId);
+            if(!panel) return;
+            const table = panel.querySelector('table');
+            if(!table) return;
+            const getVal = (tb)=>{
+                const main = tb.querySelector('tr[data-segment-type="new"]');
+                if(!main) return '';
+                let v='';
+                main.querySelectorAll(':scope > td.core-shared-td').forEach(td=>{
+                    if(classifyCoreCell(td)==='field'){ const el=td.querySelector('input'); if(el) v=el.value; }
+                });
+                return (v||'').trim();
+            };
+            const groups = Array.from(table.querySelectorAll('tbody.segment-group'));
+            const dir = projectSortAsc ? 1 : -1;
+            groups.map((tb,i)=>({tb,v:getVal(tb),i}))
+                .sort((a,b)=>{
+                    if(a.v===''&&b.v!=='') return 1;
+                    if(b.v===''&&a.v!=='') return -1;
+                    const c = a.v.localeCompare(b.v,'zh-Hant',{numeric:true});
+                    return c!==0 ? c*dir : a.i-b.i;
+                })
+                .forEach(o=>table.appendChild(o.tb));
+            projectSortAsc = !projectSortAsc;
+            updateRowNumbers(table);
+            scheduleAutoSave();
+            showMessage('已依工程標別排序（'+(dir===1?'升冪':'降冪')+'）');
         }
 
         function updateRowNumbers(table) {
@@ -3572,6 +3611,7 @@
                 const subCell = document.getElementById('subtotal-segment-data-length');
                 if (subCell) subCell.textContent = sum.toFixed(2);
             }
+            scheduleAutoSave();
         }
 
         function updateSegmentTotalLength(groupId, inputEl) {
@@ -3584,6 +3624,7 @@
             document.querySelectorAll('.segment-total-length-input').forEach(inp => sum += parseFloat(inp.value) || 0);
             const subCell = document.getElementById('subtotal-segment-total-length');
             if (subCell) subCell.textContent = sum.toFixed(2);
+            scheduleAutoSave();
         }
 
         function generateSegmentDataTable() {
