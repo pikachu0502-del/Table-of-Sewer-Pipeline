@@ -193,6 +193,10 @@
                         <button onclick="addSegmentRow()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                             + 新增管段
                         </button>
+                        <button onclick="triggerImportXlsm()" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            ↑ 匯入異常表(xlsm)
+                        </button>
+                        <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
                         <button onclick="exportData()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                             ↓ 匯出 Excel
                         </button>
@@ -457,6 +461,21 @@
     </div>
 
     <div id="scoreTooltip" class="fixed hidden bg-white border border-gray-300 shadow-xl rounded-lg p-4 z-50 w-80 pointer-events-none transition-opacity duration-200 text-sm">
+    </div>
+
+    <div id="importPreviewModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-[95vw] max-w-6xl h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold text-gray-800">匯入預覽確認</h2>
+                <button onclick="closeImportPreview()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="importSummary" class="px-4 py-2 text-sm bg-gray-50 border-b shrink-0"></div>
+            <div id="importPreviewBody" class="flex-1 overflow-auto p-4"></div>
+            <div class="p-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
+                <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded">取消</button>
+                <button id="importConfirmBtn" onclick="confirmImport()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded">確認匯入</button>
+            </div>
+        </div>
     </div>
 
     <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[200] hidden">
@@ -2397,7 +2416,7 @@
             panel.scrollTop = panel.scrollHeight;
             panel.scrollLeft = 0; 
             
-            showMessage('已新增管段');
+            if(!window.__bulkImport) showMessage('已新增管段');
         }
 
         function addSubRow() {
@@ -2463,9 +2482,9 @@
             tbody.appendChild(newRow);
             rebuildGroupRowspans(tbody);
             
-            newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if(!window.__bulkImport) newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             
-            showMessage('已新增同管段異常');
+            if(!window.__bulkImport) showMessage('已新增同管段異常');
         }
 
         // 「+ 新增不同起始人孔」：同管段內新增一筆異常資料，自成一個新的起始人孔叛集（不與現有叛集合併）
@@ -4238,6 +4257,276 @@
         document.addEventListener('change', (e) => {
             if (e.target.closest && e.target.closest('.project-panel')) scheduleAutoSave();
         });
+
+        // ===== 匯入廠商 xlsm 異常狀況統計表 =====
+        const IMPORT_TYPE_OPTS = ['破損龜裂','不明管接入','接頭脫開','變形','樹根侵入','下陷','腐蝕沖蝕','滲漏','淤積','油脂結垢','PVC裡襯剝離(含節O型環)'];
+        let importParsed = null;
+
+        function stripWS(s){ return String(s==null?'':s).replace(/\s+/g,''); }
+
+        function normalizeImportType(raw){
+            const t = stripWS(raw);
+            if(!t) return '';
+            if(IMPORT_TYPE_OPTS.includes(t)) return t;
+            const rules = [
+                [/接頭|脫開|落差/, '接頭脫開'],
+                [/O型環|裡襯|PVC|管節/, 'PVC裡襯剝離(含節O型環)'],
+                [/龜裂|破損|穿孔/, '破損龜裂'],
+                [/樹根/, '樹根侵入'],
+                [/不明/, '不明管接入'],
+                [/變形/, '變形'],
+                [/下陷/, '下陷'],
+                [/腐蝕|沖蝕/, '腐蝕沖蝕'],
+                [/滲漏|漏水/, '滲漏'],
+                [/淤積|淤/, '淤積'],
+                [/油脂|結垢/, '油脂結垢']
+            ];
+            for(const [re,v] of rules){ if(re.test(t)) return v; }
+            return null;
+        }
+
+        function excelDateToYMD(v){
+            if(v==null || v==='') return '';
+            if(typeof v === 'number' && isFinite(v)){
+                const ms = Math.round((v - 25569) * 86400 * 1000);
+                const d = new Date(ms);
+                if(isNaN(d)) return '';
+                const y=d.getUTCFullYear(), m=String(d.getUTCMonth()+1).padStart(2,'0'), day=String(d.getUTCDate()).padStart(2,'0');
+                return ''+y+m+day;
+            }
+            const digits = String(v).replace(/[^\d]/g,'');
+            return digits.slice(0,8);
+        }
+
+        function triggerImportXlsm(){
+            if(!activeProjectId){ showMessage('請先選擇專案', true); return; }
+            document.getElementById('importXlsmInput').click();
+        }
+
+        function handleImportXlsm(input){
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e){
+                try{
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type:'array' });
+                    const sheetName = wb.SheetNames.find(n=>/異常狀況統計/.test(n)) || wb.SheetNames[0];
+                    const ws = wb.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
+                    importParsed = parseAnomalySheet(rows);
+                    if(!importParsed.segments.length){ showMessage('未在檔案中找到可匯入的異常資料', true); input.value=''; return; }
+                    showImportPreview();
+                }catch(err){
+                    console.error(err);
+                    showMessage('讀取失敗：'+(err&&err.message||err), true);
+                }
+                input.value='';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseAnomalySheet(rows){
+            const cell = (r,c)=> (rows[r] && c!=null && rows[r][c]!=null) ? rows[r][c] : '';
+            // 找出表頭區塊（含「異常狀況說明」與「人孔」的列）
+            let hDesc=-1, hSub=-1;
+            for(let r=0; r<Math.min(rows.length,15); r++){
+                const joined = (rows[r]||[]).map(stripWS).join('|');
+                if(hDesc<0 && /異常狀況說明|異常狀況/.test(joined)) hDesc=r;
+                if(hSub<0 && /(上游人孔|上游)/.test(joined) && /(下游人孔|下游)/.test(joined)) hSub=r;
+            }
+            if(hDesc<0) hDesc = 4;
+            if(hSub<0) hSub = hDesc+2;
+            const headerRows = [hDesc-1, hDesc, hDesc+1, hSub].filter(r=>r>=0);
+
+            const KW = [
+                ['up',['上游人孔','上游']],['down',['下游人孔','下游']],['start',['起始']],
+                ['date',['檢視日期','日期']],['order',['檢視次第','次第']],['road',['路名']],
+                ['length',['管長']],['diameter',['管徑']],['material',['管材']],
+                ['aStart',['異常起點','起點']],['aEnd',['異常終點','終點']],['dir',['異常方位','方位']],
+                ['desc',['異常狀況說明','分類']],['score',['程度']]
+            ];
+            const col = { segNo:0 };
+            const maxC = Math.max(...rows.slice(0, hSub+1).map(rw=>(rw||[]).length), 0);
+            headerRows.forEach(r=>{
+                for(let c=0;c<maxC;c++){
+                    const txt = stripWS(cell(r,c));
+                    if(!txt) continue;
+                    if(col.segNo==null && txt==='編號') col.segNo=c;
+                    KW.forEach(([key,kws])=>{
+                        if(col[key]==null && kws.some(k=>txt.includes(k))) col[key]=c;
+                    });
+                }
+            });
+            // 合理後備（依廠商樣本欄位順序）
+            const fallback = { up:1, down:2, start:3, date:4, order:5, road:6, length:7, diameter:8, material:9, aStart:10, aEnd:11, dir:12, desc:13, score:16 };
+            Object.keys(fallback).forEach(k=>{ if(col[k]==null) col[k]=fallback[k]; });
+
+            const dataStart = Math.max(hDesc, hSub) + 1;
+            const segments = [];
+            let current = null;
+            let counts = { seg:0, anomaly:0, warn:0, badType:0 };
+
+            for(let r=dataStart; r<rows.length; r++){
+                const row = rows[r]||[];
+                const segNoVal = stripWS(cell(r,col.segNo));
+                const upVal = String(cell(r,col.up)||'').trim();
+                const descRaw = String(cell(r,col.desc)||'').trim();
+                const aStart = cell(r,col.aStart);
+                const aEnd = cell(r,col.aEnd);
+                const rowEmpty = !segNoVal && !upVal && !descRaw && aStart==='' && aEnd==='';
+                if(rowEmpty) continue;
+
+                if(segNoVal){
+                    current = {
+                        seg: {
+                            segNo: segNoVal,
+                            up: upVal,
+                            down: String(cell(r,col.down)||'').trim(),
+                            start: String(cell(r,col.start)||'').trim(),
+                            date: excelDateToYMD(cell(r,col.date)),
+                            order: String(cell(r,col.order)||'').trim(),
+                            road: String(cell(r,col.road)||'').trim(),
+                            length: cell(r,col.length),
+                            diameter: cell(r,col.diameter),
+                            material: String(cell(r,col.material)||'').trim()
+                        },
+                        anomalies: []
+                    };
+                    segments.push(current); counts.seg++;
+                }
+                if(current && (descRaw || aStart!=='' || aEnd!=='')){
+                    const mapped = normalizeImportType(descRaw);
+                    const scoreRaw = cell(r,col.score);
+                    let score = parseInt(scoreRaw,10);
+                    const scoreOk = (score>=1 && score<=3);
+                    const problems = [];
+                    if(descRaw && mapped===null){ problems.push('異常項目無法辨識'); counts.badType++; }
+                    if(descRaw && !scoreOk){ problems.push('程度分缺漏(需1~3)'); }
+                    const anomaly = {
+                        aStart: aStart===''?'':String(aStart).trim(),
+                        aEnd: aEnd===''?'':String(aEnd).trim(),
+                        dir: String(cell(r,col.dir)||'').trim(),
+                        descRaw, type: mapped, score: scoreOk?score:'',
+                        problems
+                    };
+                    current.anomalies.push(anomaly); counts.anomaly++;
+                    if(problems.length) counts.warn++;
+                }
+            }
+            return { segments, counts, col };
+        }
+
+        function showImportPreview(){
+            const p = importParsed;
+            const modal = document.getElementById('importPreviewModal');
+            const c = p.counts;
+            document.getElementById('importSummary').innerHTML =
+                '共 <b>'+c.seg+'</b> 段管段、<b>'+c.anomaly+'</b> 筆異常。'+
+                (c.warn>0 ? '<span class="text-red-600 font-semibold">　'+c.warn+' 筆需注意</span>（紅色列：異常項目無法自動對應或程度分缺漏，匯入後仍可手動修正）' : '<span class="text-green-600 font-semibold">　全部可正常匯入</span>')+
+                '　匯入方式：新增到目前專案（保留現有資料）。';
+            const th=(t)=>'<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0">'+t+'</th>';
+            let h='<table class="border-collapse text-xs w-full"><thead><tr>'
+                + th('編號')+th('上游人孔')+th('下游人孔')+th('起始人孔')+th('檢視日期')+th('路名')+th('管長')+th('管徑')+th('管材')
+                + th('異常起點')+th('異常終點')+th('方位')+th('原始異常說明')+th('對應項目')+th('程度分')+th('狀態')
+                + '</tr></thead><tbody>';
+            p.segments.forEach(s=>{
+                s.anomalies.forEach((a,idx)=>{
+                    const bad = a.problems.length>0;
+                    const rowCls = bad ? 'bg-red-50' : 'bg-green-50';
+                    const first = idx===0;
+                    const seg=s.seg;
+                    const segCell=(v)=> first ? '<td class="border border-gray-300 px-2 py-1 align-top" rowspan="'+s.anomalies.length+'">'+(v==null?'':v)+'</td>' : '';
+                    h+='<tr class="'+rowCls+'">'
+                        + segCell(seg.segNo)+segCell(seg.up)+segCell(seg.down)+segCell(seg.start)+segCell(seg.date)+segCell(seg.road)+segCell(seg.length)+segCell(seg.diameter)+segCell(seg.material)
+                        + '<td class="border border-gray-300 px-2 py-1">'+a.aStart+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1">'+a.aEnd+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1">'+a.dir+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1">'+a.descRaw+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1 '+(a.type===null?'text-red-600 font-semibold':'')+'">'+(a.type===null?'（無法對應）':(a.type||''))+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1 text-center '+(a.descRaw&&a.score===''?'text-red-600 font-semibold':'')+'">'+(a.score===''?(a.descRaw?'缺':''):a.score)+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1 text-center">'+(bad?'<span class="text-red-600">⚠ '+a.problems.join('、')+'</span>':'<span class="text-green-600">✓</span>')+'</td>'
+                        + '</tr>';
+                });
+            });
+            h+='</tbody></table>';
+            document.getElementById('importPreviewBody').innerHTML=h;
+            modal.classList.remove('hidden');
+        }
+
+        function closeImportPreview(){
+            document.getElementById('importPreviewModal').classList.add('hidden');
+        }
+
+        function setCoreVal(inputEl, val){
+            if(!inputEl) return;
+            if(val==null || val==='') return;
+            if(inputEl.tagName==='SELECT'){
+                const ok = Array.from(inputEl.options).some(o=>o.value===String(val));
+                if(ok) inputEl.value = String(val);
+            } else {
+                inputEl.value = String(val);
+            }
+        }
+
+        function fillImportedAnomaly(row, a){
+            const st=row.querySelector('input[placeholder="起點"]'); if(st) st.value=a.aStart||'';
+            const en=row.querySelector('input[placeholder="終點"]'); if(en) en.value=a.aEnd||'';
+            const di=row.querySelector('input[placeholder="方位"]'); if(di) di.value=a.dir||'';
+            const sel=row.querySelector('.anomaly-desc-select');
+            if(sel && a.type){ sel.value=a.type; updateFields(sel); }
+            const sc=row.querySelector('.score-input');
+            if(sc && a.score!==''){ sc.value=String(a.score); calculateSingleWeight(row); }
+        }
+
+        function confirmImport(){
+            if(!importParsed || !activeProjectId){ closeImportPreview(); return; }
+            const panel = document.querySelector('#panel-'+activeProjectId);
+            if(!panel){ showMessage('找不到目前專案面板', true); return; }
+            const table = panel.querySelector('table');
+            window.__bulkImport = true;
+            try{
+                importParsed.segments.forEach(s=>{
+                    addSegmentRow();
+                    const groups = table.querySelectorAll('tbody.segment-group');
+                    const tbody = groups[groups.length-1];
+                    const groupId = tbody.dataset.groupId;
+                    lastActiveGroupId = groupId;
+                    const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
+                    const core = mainRow.querySelectorAll(':scope > td.core-shared-td');
+                    // core: [0]drag [1]rownum [2]管段編號 [3]up [4]down [5]date [6]order [7]road [8]length [9]diameter [10]material
+                    const seg = s.seg;
+                    if(core[2]) setCoreVal(core[2].querySelector('input'), (seg.up&&seg.down)?(seg.up+'~'+seg.down):(seg.up||seg.down||''));
+                    if(core[3]) setCoreVal(core[3].querySelector('input'), seg.up);
+                    if(core[4]) setCoreVal(core[4].querySelector('input'), seg.down);
+                    const startInput = mainRow.querySelector('.start-manhole-td input');
+                    setCoreVal(startInput, seg.start);
+                    if(core[5]) setCoreVal(core[5].querySelector('input'), seg.date);
+                    if(core[6] && seg.order!=='') setCoreVal(core[6].querySelector('input'), seg.order);
+                    if(core[7]) setCoreVal(core[7].querySelector('input'), seg.road);
+                    if(core[8] && seg.length!=='') setCoreVal(core[8].querySelector('input'), seg.length);
+                    if(core[9] && seg.diameter!=='') setCoreVal(core[9].querySelector('input'), seg.diameter);
+                    if(core[10]) setCoreVal(core[10].querySelector('select'), seg.material);
+
+                    const list = s.anomalies.length ? s.anomalies : [{aStart:'',aEnd:'',dir:'',type:null,score:''}];
+                    fillImportedAnomaly(mainRow, list[0]);
+                    for(let k=1;k<list.length;k++){
+                        addSubRow();
+                        const r = tbody.querySelector('tr.anomaly-row:last-of-type');
+                        fillImportedAnomaly(r, list[k]);
+                    }
+                    calculateGroupMetrics(groupId);
+                });
+            } finally {
+                window.__bulkImport = false;
+            }
+            updateRowNumbers(table);
+            table.querySelectorAll('tbody.segment-group').forEach(tb=>{ if(tb.dataset.groupId) calculateGroupMetrics(tb.dataset.groupId); });
+            scheduleAutoSave();
+            closeImportPreview();
+            showMessage('已匯入 '+importParsed.segments.length+' 段管段');
+            panel.scrollTop = panel.scrollHeight;
+        }
 
     </script>
 </body>
