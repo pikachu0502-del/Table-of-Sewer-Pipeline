@@ -99,11 +99,14 @@
 </head>
 <body class="flex h-screen w-full">
 
-    <div class="w-52 bg-slate-800 text-white flex flex-col shrink-0">
+    <button id="sidebarShowBtn" onclick="toggleSidebar()" title="展開側邊欄" class="hidden fixed top-3 left-2 z-[120] bg-slate-800 hover:bg-slate-700 text-white w-8 h-8 rounded-md shadow-lg items-center justify-center">»</button>
+
+    <div id="mainSidebar" class="w-52 bg-slate-800 text-white flex flex-col shrink-0 transition-all duration-200 overflow-hidden">
         <div id="sidebar-projects-container" class="flex flex-col h-full">
             <div class="px-3 py-3 border-b border-slate-700 flex flex-col gap-2">
                 <div class="flex justify-between items-center text-sm font-bold text-slate-200">
                     <span>專案列表</span>
+                    <button onclick="toggleSidebar()" title="收合側邊欄" class="text-slate-400 hover:text-white text-lg leading-none px-1">«</button>
                 </div>
                 <button onclick="showDiagramView()" class="w-full bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">
                     切換至示意圖製作
@@ -515,6 +518,20 @@
         let hydraulicData = {};
         let budgetData = {};
         let isUILocked = false;
+        function toggleSidebar() {
+            const sb = document.getElementById('mainSidebar');
+            const showBtn = document.getElementById('sidebarShowBtn');
+            const collapsed = sb.classList.toggle('!w-0');
+            if (collapsed) {
+                sb.classList.add('border-0');
+                showBtn.classList.remove('hidden');
+                showBtn.classList.add('flex');
+            } else {
+                sb.classList.remove('border-0');
+                showBtn.classList.add('hidden');
+                showBtn.classList.remove('flex');
+            }
+        }
         let promptCallback = null;
         let lastActiveGroupId = null;
         let currentDiagramGroupId = null;
