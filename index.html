@@ -91,6 +91,10 @@
         .segment-drag-handle:hover, .anomaly-drag-handle:hover { cursor: grab; }
         .segment-drag-handle:active, .anomaly-drag-handle:active { cursor: grabbing; }
         .sortable-ghost { opacity: 0.4; background-color: #e0e7ff; }
+
+        body.ui-locked input, body.ui-locked select, body.ui-locked textarea { pointer-events: none !important; background-color: #f1f5f9 !important; cursor: not-allowed; }
+        body.ui-locked .segment-drag-handle, body.ui-locked .anomaly-drag-handle, body.ui-locked .btn-upload, body.ui-locked .btn-remove, body.ui-locked .project-drag-handle { pointer-events: none !important; opacity: .45; }
+        body.ui-locked button[onclick^="addSubRow"], body.ui-locked button[onclick^="addSegmentRow"], body.ui-locked button[onclick^="addSubRowDifferentStart"], body.ui-locked button[onclick^="triggerImportXlsm"], body.ui-locked button[onclick^="deleteRow"], body.ui-locked button[onclick^="createNewProject"], body.ui-locked button[onclick^="sortByProject"], body.ui-locked button[onclick^="budgetAdd"], body.ui-locked button[onclick^="budgetDelete"] { pointer-events: none !important; opacity: .4; }
     </style>
 </head>
 <body class="flex h-screen w-full">
@@ -133,7 +137,10 @@
 
     <div class="flex-1 flex flex-col min-w-0 bg-gray-100">
         <div id="dataEntryHeader" class="px-5 py-4 bg-white border-b border-slate-200 flex flex-col gap-3 shrink-0">
-            <h1 class="text-lg font-bold text-slate-800 leading-none">污水管線檢視異常狀況統計表</h1>
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-bold text-slate-800 leading-none">污水管線檢視異常狀況統計表</h1>
+                <button id="lockToggleBtn" onclick="toggleUILock()" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-200 text-slate-700 hover:bg-slate-300 shrink-0">🔓 全部鎖定</button>
+            </div>
             <div class="flex flex-wrap items-end gap-x-5 gap-y-3">
                 <div class="flex flex-col">
                     <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>管線基礎資料</span>
@@ -507,6 +514,7 @@
         let repairAdviceData = {};
         let hydraulicData = {};
         let budgetData = {};
+        let isUILocked = false;
         let promptCallback = null;
         let lastActiveGroupId = null;
         let currentDiagramGroupId = null;
@@ -591,6 +599,7 @@
                 repairAdviceData: repairAdviceData,
                 hydraulicData: hydraulicData,
                 budgetData: budgetData,
+                uiLocked: isUILocked,
                 htmlContent: Array.from(document.querySelectorAll('.project-panel')).map(p => ({id: p.id, html: p.innerHTML}))
             };
             return data;
@@ -642,6 +651,7 @@
             repairAdviceData = data.repairAdviceData || {};
             hydraulicData = data.hydraulicData || {};
             budgetData = data.budgetData || {};
+            isUILocked = !!data.uiLocked;
 
             document.getElementById('workspace').innerHTML = '';
             if (data.htmlContent) {
@@ -684,10 +694,29 @@
             }
             updateRowNumbers(); // 載入完成後重新計算一次全局編號，確保與目前專案順序一致
 
-            // 載入時一次性修復所有管段可能因先前版本 bug 而錯位的共用欄位順序、rowSpan、起始人孔叢集（不會動到已正確的資料）
-            document.querySelectorAll('tbody.segment-group').forEach(tb => {
-                rebuildGroupRowspans(tb);
-            });
+            // 載入完成後依儲存狀態套用鎖定
+            applyLockState();
+        }
+
+        function applyLockState() {
+            document.body.classList.toggle('ui-locked', isUILocked);
+            const btn = document.getElementById('lockToggleBtn');
+            if (btn) {
+                btn.textContent = isUILocked ? '🔒 全部解鎖' : '🔓 全部鎖定';
+                btn.className = 'px-4 py-1.5 text-sm font-semibold rounded-md transition-colors shrink-0 ' +
+                    (isUILocked ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300');
+            }
+        }
+
+        async function toggleUILock() {
+            const goingToLock = !isUILocked;
+            showMessage(goingToLock ? '正在儲存並鎖定…' : '正在儲存並解鎖…');
+            // 先存至雲端（不阻斷鎖定；失敗仍繼續切換狀態）
+            try { if (typeof saveToFirestore === 'function') await saveToFirestore(true); } catch(e) { console.error(e); }
+            isUILocked = goingToLock;
+            applyLockState();
+            scheduleAutoSave();
+            showMessage(isUILocked ? '已鎖定介面（已備份至雲端）' : '已解鎖介面（已備份至雲端）');
         }
 
         function loadAppData(event) {
@@ -4378,6 +4407,17 @@
             Object.keys(fallback).forEach(k=>{ if(col[k]==null) col[k]=fallback[k]; });
 
             const dataStart = Math.max(hDesc, hSub) + 1;
+            // 從標題區（通常第4列）擷取「通報地點：」後的文字作為標案名稱
+            let projectLabel='';
+            for(let r=0;r<dataStart;r++){
+                const rw=rows[r]||[];
+                for(let c=0;c<rw.length;c++){
+                    const txt=String(rw[c]==null?'':rw[c]);
+                    const m=txt.match(/通報地點\s*[:：]\s*(.+)/);
+                    if(m){ projectLabel=m[1].trim(); break; }
+                }
+                if(projectLabel) break;
+            }
             const segments = [];
             let current = null;
             let counts = { seg:0, anomaly:0, warn:0, badType:0 };
@@ -4434,7 +4474,7 @@
                 s.anomalies = s.anomalies.filter(a=> !!(a.descRaw && String(a.descRaw).trim()));
             });
             const cleaned = segments.filter(s=>s.anomalies.length>0);
-            return { segments: cleaned, counts, col };
+            return { segments: cleaned, counts, col, projectLabel };
         }
 
         // 讀取目前專案已建入的管段（以上游~下游人孔為鍵），供匯入比對
@@ -4505,6 +4545,7 @@
             });
             document.getElementById('importSummary').innerHTML =
                 '共 <b>'+seg+'</b> 段管段、<b>'+anomaly+'</b> 筆異常。'+
+                (p.projectLabel ? '　標案名稱：<b class="text-slate-800">'+p.projectLabel+'</b>' : '　<span class="text-amber-700">未偵測到標案名稱（第4列「通報地點：」）</span>')+
                 (dup>0 ? '<span class="text-amber-700 font-semibold">　'+dup+' 段與現有資料重複</span>（<span class="bg-yellow-200 px-1 rounded">黃色</span>＝與現有不同的欄位；可於右側選擇「覆蓋現有／略過」）' : '')+
                 (warn>0 ? '<span class="text-red-600 font-semibold">　'+warn+' 筆需注意</span>（紅色：異常項目未對應或程度分缺漏）' : (dup===0?'<span class="text-green-600 font-semibold">　全部可正常匯入</span>':''));
             const th=(t)=>'<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0 whitespace-nowrap">'+t+'</th>';
@@ -4640,7 +4681,7 @@
                     const core = mainRow.querySelectorAll(':scope > td.core-shared-td');
                     // core: [0]drag [1]rownum [2]管段編號 [3]up [4]down [5]date [6]order [7]road [8]length [9]diameter [10]material
                     const seg = s.seg;
-                    if(core[2]) setCoreVal(core[2].querySelector('input'), (seg.up&&seg.down)?(seg.up+'~'+seg.down):(seg.up||seg.down||''));
+                    if(core[2]) setCoreVal(core[2].querySelector('input'), importParsed.projectLabel || '');
                     if(core[3]) setCoreVal(core[3].querySelector('input'), seg.up);
                     if(core[4]) setCoreVal(core[4].querySelector('input'), seg.down);
                     const startInput = mainRow.querySelector('.start-manhole-td input');
