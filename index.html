@@ -95,38 +95,28 @@
 </head>
 <body class="flex h-screen w-full">
 
-    <div class="w-64 bg-gray-800 text-white flex flex-col shrink-0">
+    <div class="w-52 bg-slate-800 text-white flex flex-col shrink-0">
         <div id="sidebar-projects-container" class="flex flex-col h-full">
-            <div class="p-4 font-bold text-lg border-b border-gray-700 flex flex-col gap-3">
-                <div class="flex justify-between items-center">
+            <div class="px-3 py-3 border-b border-slate-700 flex flex-col gap-2">
+                <div class="flex justify-between items-center text-sm font-bold text-slate-200">
                     <span>專案列表</span>
                 </div>
-                <button onclick="showDiagramView()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 px-3 rounded shadow transition duration-150 border border-blue-400">
+                <button onclick="showDiagramView()" class="w-full bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">
                     切換至示意圖製作
                 </button>
             </div>
             <ul id="projectList" class="flex-1 overflow-y-auto py-2 space-y-1">
             </ul>
-            <div class="p-4 border-t border-gray-700 space-y-3">
-                <button onclick="exportAllToExcel()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-purple-500">
-                    匯出本專案 Excel
-                </button>
-                <button onclick="saveAppData()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-green-500">
-                    儲存至本機
-                </button>
-                <button onclick="manualCloudSave()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-orange-500">
-                    壓縮並儲存至雲端
-                </button>
+            <div class="px-3 py-3 border-t border-slate-700 flex flex-col gap-2">
+                <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-0.5">儲存／匯出</span>
+                <button onclick="exportAllToExcel()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">↓ 匯出本專案 Excel</button>
+                <button onclick="saveAppData()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">儲存至本機</button>
+                <button onclick="manualCloudSave()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">壓縮並儲存至雲端</button>
                 <input type="file" id="fileInput" onchange="loadAppData(event)" class="hidden" accept=".json">
-                <button onclick="document.getElementById('fileInput').click()" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-gray-500">
-                    自本機匯入
-                </button>
-                <button onclick="showProjectStatsModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 border border-teal-500">
-                    專案統計
-                </button>
-                <button onclick="createNewProject()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150">
-                    + 新增專案
-                </button>
+                <button onclick="document.getElementById('fileInput').click()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">自本機匯入</button>
+                <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-0.5 mt-1">專案</span>
+                <button onclick="showProjectStatsModal()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">專案統計</button>
+                <button onclick="createNewProject()" class="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold py-1.5 px-3 rounded-md transition-colors">+ 新增專案</button>
             </div>
         </div>
 
@@ -142,64 +132,42 @@
     </div>
 
     <div class="flex-1 flex flex-col min-w-0 bg-gray-100">
-        <div id="dataEntryHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0">
-            <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">污水管線檢視異常狀況統計表</h1>
-            <div class="flex flex-wrap items-end gap-x-4 gap-y-2 shrink-0">
-                <div class="flex flex-col items-center">
-                    <span class="text-[11px] text-gray-500 font-semibold mb-1">管線基礎資料</span>
-                    <div class="flex gap-2">
-                        <button onclick="showSegmentDataView()" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            管段資料
-                        </button>
-                        <button onclick="showProjectInfoView()" class="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            標案資料
-                        </button>
+        <div id="dataEntryHeader" class="px-5 py-4 bg-white border-b border-slate-200 flex flex-col gap-3 shrink-0">
+            <h1 class="text-lg font-bold text-slate-800 leading-none">污水管線檢視異常狀況統計表</h1>
+            <div class="flex flex-wrap items-end gap-x-5 gap-y-3">
+                <div class="flex flex-col">
+                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>管線基礎資料</span>
+                    <div class="flex gap-1.5">
+                        <button onclick="showSegmentDataView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">管段資料</button>
+                        <button onclick="showProjectInfoView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">標案資料</button>
                     </div>
                 </div>
-                <div class="w-px self-stretch bg-gray-200"></div>
-                <div class="flex flex-col items-center">
-                    <span class="text-[11px] text-gray-500 font-semibold mb-1">異常狀況統計</span>
-                    <div class="flex gap-2">
-                        <button onclick="showRepairSummaryView()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            統計修繕
-                        </button>
-                        <button onclick="showSummaryView()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            統計異常
-                        </button>
+                <div class="w-px self-stretch bg-slate-200"></div>
+                <div class="flex flex-col">
+                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>異常狀況統計</span>
+                    <div class="flex gap-1.5">
+                        <button onclick="showRepairSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計修繕</button>
+                        <button onclick="showSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計異常</button>
                     </div>
                 </div>
-                <div class="w-px self-stretch bg-gray-200"></div>
-                <div class="flex flex-col items-center">
-                    <span class="text-[11px] text-gray-500 font-semibold mb-1">異常狀況改善</span>
-                    <div class="flex gap-2">
-                        <button onclick="showReportDesignView()" class="bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            提報修繕
-                        </button>
-                        <button onclick="showHydraulicView()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            水理計算
-                        </button>
+                <div class="w-px self-stretch bg-slate-200"></div>
+                <div class="flex flex-col">
+                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>異常狀況改善</span>
+                    <div class="flex gap-1.5">
+                        <button onclick="showReportDesignView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">提報修繕</button>
+                        <button onclick="showHydraulicView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">水理計算</button>
                     </div>
                 </div>
-                <div class="w-px self-stretch bg-gray-200"></div>
-                <div class="flex flex-col items-center">
-                    <span class="text-[11px] text-gray-500 font-semibold mb-1">編輯／匯出</span>
-                    <div class="flex gap-2">
-                        <button onclick="addSubRow()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            + 新增同管段異常
-                        </button>
-                        <button onclick="addSubRowDifferentStart()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            + 新增不同起始人孔
-                        </button>
-                        <button onclick="addSegmentRow()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            + 新增管段
-                        </button>
-                        <button onclick="triggerImportXlsm()" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            ↑ 匯入異常表(xlsm)
-                        </button>
+                <div class="w-px self-stretch bg-slate-200"></div>
+                <div class="flex flex-col">
+                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>編輯／匯出</span>
+                    <div class="flex gap-1.5">
+                        <button onclick="addSubRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 同管段異常</button>
+                        <button onclick="addSubRowDifferentStart()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 不同起始人孔</button>
+                        <button onclick="addSegmentRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 管段</button>
+                        <button onclick="triggerImportXlsm()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↑ 匯入 xlsm</button>
                         <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
-                        <button onclick="exportData()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                            ↓ 匯出 Excel
-                        </button>
+                        <button onclick="exportData()" class="px-3.5 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-800 text-white hover:bg-slate-900">↓ 匯出 Excel</button>
                     </div>
                 </div>
             </div>
@@ -463,17 +431,17 @@
     <div id="scoreTooltip" class="fixed hidden bg-white border border-gray-300 shadow-xl rounded-lg p-4 z-50 w-80 pointer-events-none transition-opacity duration-200 text-sm">
     </div>
 
-    <div id="importPreviewModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden">
-        <div class="bg-white rounded-lg shadow-2xl w-[95vw] max-w-6xl h-[90vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center shrink-0">
+    <div id="importPreviewModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden p-6">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
                 <h2 class="text-lg font-bold text-gray-800">匯入預覽確認</h2>
                 <button onclick="closeImportPreview()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
             </div>
-            <div id="importSummary" class="px-4 py-2 text-sm bg-gray-50 border-b shrink-0"></div>
-            <div id="importPreviewBody" class="flex-1 overflow-auto p-4"></div>
-            <div class="p-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
-                <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded">取消</button>
-                <button id="importConfirmBtn" onclick="confirmImport()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded">確認匯入</button>
+            <div id="importSummary" class="px-6 py-3 text-sm bg-gray-50 border-b shrink-0 leading-relaxed"></div>
+            <div id="importPreviewBody" class="flex-1 overflow-auto px-6 py-4"></div>
+            <div class="px-6 py-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
+                <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-lg">取消</button>
+                <button id="importConfirmBtn" onclick="confirmImport()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg">確認匯入</button>
             </div>
         </div>
     </div>
@@ -4428,8 +4396,39 @@
             return { segments: cleaned, counts, col };
         }
 
-        function computeAnomalyProblems(a){
-            const problems=[];
+        // 讀取目前專案已建入的管段（以上游~下游人孔為鍵），供匯入比對
+        function getExistingSegmentIndex(){
+            const map = {};
+            const panel = document.querySelector('#panel-'+activeProjectId);
+            if(!panel) return map;
+            panel.querySelectorAll('tbody.segment-group').forEach(tb=>{
+                const main = tb.querySelector('tr[data-segment-type="new"]');
+                if(!main) return;
+                const info = { groupId: tb.dataset.groupId, up:'', down:'', start:'', date:'', road:'', length:'', diameter:'', material:'' };
+                main.querySelectorAll(':scope > td').forEach(td=>{
+                    const t = classifyCoreCell(td);
+                    const el = td.querySelector('input, select');
+                    const v = el ? el.value : '';
+                    if(t==='up') info.up=v; else if(t==='down') info.down=v; else if(t==='date') info.date=v;
+                    else if(t==='road') info.road=v; else if(t==='length') info.length=v;
+                    else if(t==='diameter') info.diameter=v; else if(t==='material') info.material=v;
+                });
+                const startEl = main.querySelector('.start-manhole-td input');
+                if(startEl) info.start = startEl.value;
+                const key = normManhole(info.up)+'~'+normManhole(info.down);
+                map[key] = info;
+            });
+            return map;
+        }
+
+        function importValEq(a, b, numeric){
+            const sa = String(a==null?'':a).trim(), sb = String(b==null?'':b).trim();
+            if(sa==='' && sb==='') return true;
+            if(numeric){ const na=parseFloat(sa), nb=parseFloat(sb); if(isFinite(na)&&isFinite(nb)) return na===nb; }
+            return sa===sb;
+        }
+
+        function computeAnomalyProblems(a){            const problems=[];
             if(a.descRaw && (a.type===null || a.type==='')) problems.push('異常項目未對應');
             if(a.descRaw && a.score==='') problems.push('程度分缺漏(需1~3)');
             a.problems=problems;
@@ -4439,13 +4438,35 @@
         function showImportPreview(){
             const p = importParsed;
             const modal = document.getElementById('importPreviewModal');
-            let seg=0, anomaly=0, warn=0;
-            p.segments.forEach(s=>{ seg++; s.anomalies.forEach(a=>{ anomaly++; if(computeAnomalyProblems(a).length) warn++; }); });
+            const existing = getExistingSegmentIndex();
+            let seg=0, anomaly=0, warn=0, dup=0;
+            p.segments.forEach(s=>{
+                seg++;
+                s.anomalies.forEach(a=>{ anomaly++; if(computeAnomalyProblems(a).length) warn++; });
+                const key = normManhole(s.seg.up)+'~'+normManhole(s.seg.down);
+                const ex = (s.seg.up||s.seg.down) ? existing[key] : null;
+                s._ex = ex || null;
+                if(ex){
+                    dup++;
+                    if(s.action===undefined) s.action='overwrite';
+                    s._diff = {
+                        date: !importValEq(s.seg.date, ex.date),
+                        road: !importValEq(s.seg.road, ex.road),
+                        length: !importValEq(s.seg.length, ex.length, true),
+                        diameter: !importValEq(s.seg.diameter, ex.diameter, true),
+                        material: !importValEq(s.seg.material, ex.material),
+                        start: !importValEq(s.seg.start, ex.start)
+                    };
+                } else {
+                    if(s.action===undefined) s.action='add';
+                    s._diff = {};
+                }
+            });
             document.getElementById('importSummary').innerHTML =
                 '共 <b>'+seg+'</b> 段管段、<b>'+anomaly+'</b> 筆異常。'+
-                (warn>0 ? '<span class="text-red-600 font-semibold">　'+warn+' 筆需注意</span>（紅色列：異常項目未對應或程度分缺漏，請於下方直接修正或刪除）' : '<span class="text-green-600 font-semibold">　全部可正常匯入</span>')+
-                '　匯入方式：新增到目前專案（保留現有資料）。';
-            const th=(t)=>'<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0">'+t+'</th>';
+                (dup>0 ? '<span class="text-amber-700 font-semibold">　'+dup+' 段與現有資料重複</span>（<span class="bg-yellow-200 px-1 rounded">黃色</span>＝與現有不同的欄位；可於右側選擇「覆蓋現有／略過」）' : '')+
+                (warn>0 ? '<span class="text-red-600 font-semibold">　'+warn+' 筆需注意</span>（紅色：異常項目未對應或程度分缺漏）' : (dup===0?'<span class="text-green-600 font-semibold">　全部可正常匯入</span>':''));
+            const th=(t)=>'<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0 whitespace-nowrap">'+t+'</th>';
             const typeOpts=(cur)=>{
                 let o='<option value="">（請選擇）</option>';
                 IMPORT_TYPE_OPTS.forEach(t=>{ o+='<option value="'+t+'"'+(t===cur?' selected':'')+'>'+t+'</option>'; });
@@ -4457,18 +4478,35 @@
                 return o;
             };
             let h='<table class="border-collapse text-xs w-full"><thead><tr>'
+                + th('狀態/處理')
                 + th('編號')+th('上游人孔')+th('下游人孔')+th('起始人孔')+th('檢視日期')+th('路名')+th('管長')+th('管徑')+th('管材')
                 + th('異常起點')+th('異常終點')+th('方位')+th('原始異常說明')+th('對應項目（分類/評比權重）')+th('程度(分)')+th('刪除')
                 + '</tr></thead><tbody>';
             p.segments.forEach((s,si)=>{
+                const n = s.anomalies.length;
+                const d = s._diff || {};
                 s.anomalies.forEach((a,ai)=>{
                     const bad = a.problems.length>0;
-                    const rowCls = bad ? 'bg-red-50' : 'bg-green-50';
+                    const rowCls = bad ? 'bg-red-50' : (s._ex ? 'bg-amber-50/40' : 'bg-green-50');
                     const first = ai===0;
                     const seg2=s.seg;
-                    const segCell=(v)=> first ? '<td class="border border-gray-300 px-2 py-1 align-top" rowspan="'+s.anomalies.length+'">'+(v==null?'':v)+'</td>' : '';
+                    const segCell=(v,diff)=> first ? '<td class="border border-gray-300 px-2 py-1 align-top whitespace-nowrap '+(diff?'bg-yellow-200':'')+'" rowspan="'+n+'">'+(v==null?'':v)+'</td>' : '';
+                    let statusCell='';
+                    if(first){
+                        if(s._ex){
+                            statusCell='<td class="border border-gray-300 px-2 py-1 align-top" rowspan="'+n+'">'
+                                + '<div class="text-amber-700 font-bold mb-1">重複</div>'
+                                + '<select onchange="importSetAction('+si+',this.value)" class="text-xs border rounded px-1 py-0.5 w-full">'
+                                + '<option value="overwrite"'+(s.action==='overwrite'?' selected':'')+'>覆蓋現有</option>'
+                                + '<option value="skip"'+(s.action==='skip'?' selected':'')+'>略過</option>'
+                                + '</select></td>';
+                        } else {
+                            statusCell='<td class="border border-gray-300 px-2 py-1 align-top text-green-700 font-semibold" rowspan="'+n+'">新增</td>';
+                        }
+                    }
                     h+='<tr class="'+rowCls+'">'
-                        + segCell(seg2.segNo)+segCell(seg2.up)+segCell(seg2.down)+segCell(seg2.start)+segCell(seg2.date)+segCell(seg2.road)+segCell(seg2.length)+segCell(seg2.diameter)+segCell(seg2.material)
+                        + statusCell
+                        + segCell(seg2.segNo)+segCell(seg2.up)+segCell(seg2.down)+segCell(seg2.start,d.start)+segCell(seg2.date,d.date)+segCell(seg2.road,d.road)+segCell(seg2.length,d.length)+segCell(seg2.diameter,d.diameter)+segCell(seg2.material,d.material)
                         + '<td class="border border-gray-300 px-2 py-1">'+a.aStart+'</td>'
                         + '<td class="border border-gray-300 px-2 py-1">'+a.aEnd+'</td>'
                         + '<td class="border border-gray-300 px-2 py-1">'+a.dir+'</td>'
@@ -4482,6 +4520,11 @@
             h+='</tbody></table>';
             document.getElementById('importPreviewBody').innerHTML=h;
             modal.classList.remove('hidden');
+        }
+
+        function importSetAction(si, value){
+            importParsed.segments[si].action = value;
+            showImportPreview();
         }
 
         function importSetType(si, ai, value){
@@ -4532,9 +4575,21 @@
             const panel = document.querySelector('#panel-'+activeProjectId);
             if(!panel){ showMessage('找不到目前專案面板', true); return; }
             const table = panel.querySelector('table');
+            const existing = getExistingSegmentIndex();
             window.__bulkImport = true;
+            let added=0, overwritten=0, skipped=0;
             try{
                 importParsed.segments.forEach(s=>{
+                    if(s.action==='skip'){ skipped++; return; }
+                    // 覆蓋：先移除現有相同管段
+                    const key = normManhole(s.seg.up)+'~'+normManhole(s.seg.down);
+                    if(s.action==='overwrite' && existing[key]){
+                        const oldTb = table.querySelector('tbody[data-group-id="'+existing[key].groupId+'"]');
+                        if(oldTb) oldTb.remove();
+                        overwritten++;
+                    } else {
+                        added++;
+                    }
                     addSegmentRow();
                     const groups = table.querySelectorAll('tbody.segment-group');
                     const tbody = groups[groups.length-1];
@@ -4572,7 +4627,7 @@
             table.querySelectorAll('tbody.segment-group').forEach(tb=>{ if(tb.dataset.groupId) calculateGroupMetrics(tb.dataset.groupId); });
             scheduleAutoSave();
             closeImportPreview();
-            showMessage('已匯入 '+importParsed.segments.length+' 段管段');
+            showMessage('已匯入：新增 '+added+' 段'+(overwritten?'，覆蓋 '+overwritten+' 段':'')+(skipped?'，略過 '+skipped+' 段':''));
             panel.scrollTop = panel.scrollHeight;
         }
 
