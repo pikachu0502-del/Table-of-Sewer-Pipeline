@@ -4267,6 +4267,12 @@
         function normalizeImportType(raw){
             const t = stripWS(raw);
             if(!t) return '';
+            // 支援以「分類編號」1~11 對應（例如 11 = PVC裡襯剝離）
+            if(/^\d+$/.test(t)){
+                const code = parseInt(t,10);
+                const found = Object.keys(categoryMap).find(k=>categoryMap[k]===code);
+                return found || null;
+            }
             if(IMPORT_TYPE_OPTS.includes(t)) return t;
             const rules = [
                 [/接頭|脫開|落差/, '接頭脫開'],
@@ -4332,7 +4338,7 @@
             let hDesc=-1, hSub=-1;
             for(let r=0; r<Math.min(rows.length,15); r++){
                 const joined = (rows[r]||[]).map(stripWS).join('|');
-                if(hDesc<0 && /異常狀況說明|異常狀況/.test(joined)) hDesc=r;
+                if(hDesc<0 && (/異常狀況說明/.test(joined) || (/分類/.test(joined) && /評比/.test(joined)))) hDesc=r;
                 if(hSub<0 && /(上游人孔|上游)/.test(joined) && /(下游人孔|下游)/.test(joined)) hSub=r;
             }
             if(hDesc<0) hDesc = 4;
@@ -4414,44 +4420,86 @@
                     if(problems.length) counts.warn++;
                 }
             }
-            return { segments, counts, col };
+            // 移除沒有「異常說明」的列（視為無資料）；再移除無任何異常的管段
+            segments.forEach(s=>{
+                s.anomalies = s.anomalies.filter(a=> !!(a.descRaw && String(a.descRaw).trim()));
+            });
+            const cleaned = segments.filter(s=>s.anomalies.length>0);
+            return { segments: cleaned, counts, col };
+        }
+
+        function computeAnomalyProblems(a){
+            const problems=[];
+            if(a.descRaw && (a.type===null || a.type==='')) problems.push('異常項目未對應');
+            if(a.descRaw && a.score==='') problems.push('程度分缺漏(需1~3)');
+            a.problems=problems;
+            return problems;
         }
 
         function showImportPreview(){
             const p = importParsed;
             const modal = document.getElementById('importPreviewModal');
-            const c = p.counts;
+            let seg=0, anomaly=0, warn=0;
+            p.segments.forEach(s=>{ seg++; s.anomalies.forEach(a=>{ anomaly++; if(computeAnomalyProblems(a).length) warn++; }); });
             document.getElementById('importSummary').innerHTML =
-                '共 <b>'+c.seg+'</b> 段管段、<b>'+c.anomaly+'</b> 筆異常。'+
-                (c.warn>0 ? '<span class="text-red-600 font-semibold">　'+c.warn+' 筆需注意</span>（紅色列：異常項目無法自動對應或程度分缺漏，匯入後仍可手動修正）' : '<span class="text-green-600 font-semibold">　全部可正常匯入</span>')+
+                '共 <b>'+seg+'</b> 段管段、<b>'+anomaly+'</b> 筆異常。'+
+                (warn>0 ? '<span class="text-red-600 font-semibold">　'+warn+' 筆需注意</span>（紅色列：異常項目未對應或程度分缺漏，請於下方直接修正或刪除）' : '<span class="text-green-600 font-semibold">　全部可正常匯入</span>')+
                 '　匯入方式：新增到目前專案（保留現有資料）。';
             const th=(t)=>'<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0">'+t+'</th>';
+            const typeOpts=(cur)=>{
+                let o='<option value="">（請選擇）</option>';
+                IMPORT_TYPE_OPTS.forEach(t=>{ o+='<option value="'+t+'"'+(t===cur?' selected':'')+'>'+t+'</option>'; });
+                return o;
+            };
+            const scoreOpts=(cur)=>{
+                let o='<option value="">（空）</option>';
+                [1,2,3].forEach(n=>{ o+='<option value="'+n+'"'+(String(n)===String(cur)?' selected':'')+'>'+n+'</option>'; });
+                return o;
+            };
             let h='<table class="border-collapse text-xs w-full"><thead><tr>'
                 + th('編號')+th('上游人孔')+th('下游人孔')+th('起始人孔')+th('檢視日期')+th('路名')+th('管長')+th('管徑')+th('管材')
-                + th('異常起點')+th('異常終點')+th('方位')+th('原始異常說明')+th('對應項目')+th('程度分')+th('狀態')
+                + th('異常起點')+th('異常終點')+th('方位')+th('原始異常說明')+th('對應項目（分類/評比權重）')+th('程度(分)')+th('刪除')
                 + '</tr></thead><tbody>';
-            p.segments.forEach(s=>{
-                s.anomalies.forEach((a,idx)=>{
+            p.segments.forEach((s,si)=>{
+                s.anomalies.forEach((a,ai)=>{
                     const bad = a.problems.length>0;
                     const rowCls = bad ? 'bg-red-50' : 'bg-green-50';
-                    const first = idx===0;
-                    const seg=s.seg;
+                    const first = ai===0;
+                    const seg2=s.seg;
                     const segCell=(v)=> first ? '<td class="border border-gray-300 px-2 py-1 align-top" rowspan="'+s.anomalies.length+'">'+(v==null?'':v)+'</td>' : '';
                     h+='<tr class="'+rowCls+'">'
-                        + segCell(seg.segNo)+segCell(seg.up)+segCell(seg.down)+segCell(seg.start)+segCell(seg.date)+segCell(seg.road)+segCell(seg.length)+segCell(seg.diameter)+segCell(seg.material)
+                        + segCell(seg2.segNo)+segCell(seg2.up)+segCell(seg2.down)+segCell(seg2.start)+segCell(seg2.date)+segCell(seg2.road)+segCell(seg2.length)+segCell(seg2.diameter)+segCell(seg2.material)
                         + '<td class="border border-gray-300 px-2 py-1">'+a.aStart+'</td>'
                         + '<td class="border border-gray-300 px-2 py-1">'+a.aEnd+'</td>'
                         + '<td class="border border-gray-300 px-2 py-1">'+a.dir+'</td>'
-                        + '<td class="border border-gray-300 px-2 py-1">'+a.descRaw+'</td>'
-                        + '<td class="border border-gray-300 px-2 py-1 '+(a.type===null?'text-red-600 font-semibold':'')+'">'+(a.type===null?'（無法對應）':(a.type||''))+'</td>'
-                        + '<td class="border border-gray-300 px-2 py-1 text-center '+(a.descRaw&&a.score===''?'text-red-600 font-semibold':'')+'">'+(a.score===''?(a.descRaw?'缺':''):a.score)+'</td>'
-                        + '<td class="border border-gray-300 px-2 py-1 text-center">'+(bad?'<span class="text-red-600">⚠ '+a.problems.join('、')+'</span>':'<span class="text-green-600">✓</span>')+'</td>'
+                        + '<td class="border border-gray-300 px-2 py-1">'+a.descRaw+(a.type===null?' <span class="text-red-600">(無法自動對應)</span>':'')+'</td>'
+                        + '<td class="border border-gray-300 px-1 py-1"><select onchange="importSetType('+si+','+ai+',this.value)" class="w-full text-xs border rounded px-1 py-0.5 '+((a.type===null||a.type==='')?'bg-red-100':'')+'">'+typeOpts(a.type||'')+'</select></td>'
+                        + '<td class="border border-gray-300 px-1 py-1 text-center"><select onchange="importSetScore('+si+','+ai+',this.value)" class="text-xs border rounded px-1 py-0.5 '+((a.descRaw&&a.score==='')?'bg-red-100':'')+'">'+scoreOpts(a.score)+'</select></td>'
+                        + '<td class="border border-gray-300 px-2 py-1 text-center"><button onclick="importDeleteRow('+si+','+ai+')" class="text-red-500 hover:text-red-700 font-bold" title="刪除此列">✕</button></td>'
                         + '</tr>';
                 });
             });
             h+='</tbody></table>';
             document.getElementById('importPreviewBody').innerHTML=h;
             modal.classList.remove('hidden');
+        }
+
+        function importSetType(si, ai, value){
+            const a = importParsed.segments[si].anomalies[ai];
+            a.type = value;
+            showImportPreview();
+        }
+        function importSetScore(si, ai, value){
+            const a = importParsed.segments[si].anomalies[ai];
+            a.score = value===''?'':parseInt(value,10);
+            showImportPreview();
+        }
+        function importDeleteRow(si, ai){
+            const s = importParsed.segments[si];
+            s.anomalies.splice(ai,1);
+            if(s.anomalies.length===0) importParsed.segments.splice(si,1);
+            if(importParsed.segments.length===0){ closeImportPreview(); showMessage('已刪除全部匯入資料'); return; }
+            showImportPreview();
         }
 
         function closeImportPreview(){
