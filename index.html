@@ -2008,29 +2008,63 @@
             if(!panel) return;
             const table = panel.querySelector('table');
             if(!table) return;
-            const getVal = (tb)=>{
+            const readCore = (tb)=>{
                 const main = tb.querySelector('tr[data-segment-type="new"]');
-                if(!main) return '';
-                let v='';
+                const o = { label:'', up:'', down:'' };
+                if(!main) return o;
                 main.querySelectorAll(':scope > td.core-shared-td').forEach(td=>{
-                    if(classifyCoreCell(td)==='field'){ const el=td.querySelector('input'); if(el) v=el.value; }
+                    const t = classifyCoreCell(td); const el = td.querySelector('input');
+                    if(!el) return;
+                    if(t==='field') o.label=(el.value||'').trim();
+                    else if(t==='up') o.up=(el.value||'').trim();
+                    else if(t==='down') o.down=(el.value||'').trim();
                 });
-                return (v||'').trim();
+                return o;
             };
-            const groups = Array.from(table.querySelectorAll('tbody.segment-group'));
+            const groups = Array.from(table.querySelectorAll('tbody.segment-group'))
+                .map((tb,i)=>{ const c=readCore(tb); return {tb, i, label:c.label, up:normManhole(c.up), down:normManhole(c.down)}; });
+
+            // 先依工程標別分組（維持出現順序），標別本身依名稱排序
             const dir = projectSortAsc ? 1 : -1;
-            groups.map((tb,i)=>({tb,v:getVal(tb),i}))
-                .sort((a,b)=>{
-                    if(a.v===''&&b.v!=='') return 1;
-                    if(b.v===''&&a.v!=='') return -1;
-                    const c = a.v.localeCompare(b.v,'zh-Hant',{numeric:true});
-                    return c!==0 ? c*dir : a.i-b.i;
-                })
-                .forEach(o=>table.appendChild(o.tb));
+            const labels = [];
+            const byLabel = {};
+            groups.forEach(g=>{ if(!(g.label in byLabel)){ byLabel[g.label]=[]; labels.push(g.label); } byLabel[g.label].push(g); });
+            labels.sort((a,b)=>{
+                if(a===''&&b!=='') return 1; if(b===''&&a!=='') return -1;
+                return a.localeCompare(b,'zh-Hant',{numeric:true})*dir;
+            });
+
+            // 同一工程標別內：以人孔連線串接（某段的下游＝下一段的上游）
+            const chainGroup = (arr)=>{
+                const used = new Set();
+                const byUp = {};
+                arr.forEach(g=>{ if(g.up && !(g.up in byUp)) byUp[g.up]=g; });
+                const downSet = new Set(arr.map(g=>g.down).filter(Boolean));
+                // 起點：上游不是任何段的下游者，依上游排序
+                const starts = arr.filter(g=>!g.up || !downSet.has(g.up))
+                    .sort((a,b)=>a.up.localeCompare(b.up,'zh-Hant',{numeric:true}) || a.i-b.i);
+                const out = [];
+                const follow = (g)=>{
+                    let cur = g;
+                    while(cur && !used.has(cur)){
+                        used.add(cur); out.push(cur);
+                        cur = cur.down ? byUp[cur.down] : null;
+                        if(cur && used.has(cur)) cur = null;
+                    }
+                };
+                starts.forEach(follow);
+                // 剩餘（環狀或斷鏈）依上游排序補上
+                arr.filter(g=>!used.has(g)).sort((a,b)=>a.up.localeCompare(b.up,'zh-Hant',{numeric:true})||a.i-b.i).forEach(follow);
+                return out;
+            };
+
+            const ordered = [];
+            labels.forEach(l=>{ chainGroup(byLabel[l]).forEach(g=>ordered.push(g)); });
+            ordered.forEach(g=>table.appendChild(g.tb));
             projectSortAsc = !projectSortAsc;
             updateRowNumbers(table);
             scheduleAutoSave();
-            showMessage('已依工程標別排序（'+(dir===1?'升冪':'降冪')+'）');
+            showMessage('已依工程標別＋人孔連線排序（標別'+(dir===1?'升冪':'降冪')+'）');
         }
 
         function updateRowNumbers(table) {
