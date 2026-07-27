@@ -144,37 +144,60 @@
     <div class="flex-1 flex flex-col min-w-0 bg-gray-100">
         <div id="dataEntryHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0">
             <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">污水管線檢視異常狀況統計表</h1>
-            <div class="space-x-2 shrink-0">
-                <button onclick="showSegmentDataView()" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    管段資料
-                </button>
-                <button onclick="showProjectInfoView()" class="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    標案資料
-                </button>
-                <button onclick="showRepairSummaryView()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    統計修繕
-                </button>
-                <button onclick="showSummaryView()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    統計異常
-                </button>
-                <button onclick="showReportDesignView()" class="bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    提報修繕
-                </button>
-                <button onclick="showHydraulicView()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    水理計算
-                </button>
-                <button onclick="addSubRow()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    + 新增同管段異常
-                </button>
-                <button onclick="addSubRowDifferentStart()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    + 新增不同起始人孔
-                </button>
-                <button onclick="addSegmentRow()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    + 新增管段
-                </button>
-                <button onclick="exportData()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
-                    ↓ 匯出 Excel
-                </button>
+            <div class="flex flex-wrap items-end gap-x-4 gap-y-2 shrink-0">
+                <div class="flex flex-col items-center">
+                    <span class="text-[11px] text-gray-500 font-semibold mb-1">管線基礎資料</span>
+                    <div class="flex gap-2">
+                        <button onclick="showSegmentDataView()" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            管段資料
+                        </button>
+                        <button onclick="showProjectInfoView()" class="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            標案資料
+                        </button>
+                    </div>
+                </div>
+                <div class="w-px self-stretch bg-gray-200"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[11px] text-gray-500 font-semibold mb-1">異常狀況統計</span>
+                    <div class="flex gap-2">
+                        <button onclick="showRepairSummaryView()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            統計修繕
+                        </button>
+                        <button onclick="showSummaryView()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            統計異常
+                        </button>
+                    </div>
+                </div>
+                <div class="w-px self-stretch bg-gray-200"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[11px] text-gray-500 font-semibold mb-1">異常狀況改善</span>
+                    <div class="flex gap-2">
+                        <button onclick="showReportDesignView()" class="bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            提報修繕
+                        </button>
+                        <button onclick="showHydraulicView()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            水理計算
+                        </button>
+                    </div>
+                </div>
+                <div class="w-px self-stretch bg-gray-200"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[11px] text-gray-500 font-semibold mb-1">編輯／匯出</span>
+                    <div class="flex gap-2">
+                        <button onclick="addSubRow()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            + 新增同管段異常
+                        </button>
+                        <button onclick="addSubRowDifferentStart()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            + 新增不同起始人孔
+                        </button>
+                        <button onclick="addSegmentRow()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            + 新增管段
+                        </button>
+                        <button onclick="exportData()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                            ↓ 匯出 Excel
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -286,6 +309,8 @@
 
         <div id="hydraulicWorkspace" class="flex-1 p-8 overflow-auto hidden bg-white m-4 rounded-lg shadow-inner">
         </div>
+
+        <div id="quantityWorkspace" class="flex-1 p-8 overflow-auto hidden bg-white m-4 rounded-lg shadow-inner" style="display:none"></div>
 
         <div id="diagramWorkspace" class="flex-1 p-8 overflow-auto hidden bg-gray-100 m-4 rounded-lg shadow-inner">
             <div class="w-full max-w-6xl mx-auto bg-white shadow border border-gray-200 pb-12" id="diagramContent">
@@ -494,6 +519,7 @@
         let diagramData = {};
         let repairAdviceData = {};
         let hydraulicData = {};
+        let budgetData = {};
         let promptCallback = null;
         let lastActiveGroupId = null;
         let currentDiagramGroupId = null;
@@ -577,6 +603,7 @@
                 diagramData: diagramData,
                 repairAdviceData: repairAdviceData,
                 hydraulicData: hydraulicData,
+                budgetData: budgetData,
                 htmlContent: Array.from(document.querySelectorAll('.project-panel')).map(p => ({id: p.id, html: p.innerHTML}))
             };
             return data;
@@ -627,6 +654,7 @@
             diagramData = data.diagramData || {};
             repairAdviceData = data.repairAdviceData || {};
             hydraulicData = data.hydraulicData || {};
+            budgetData = data.budgetData || {};
 
             document.getElementById('workspace').innerHTML = '';
             if (data.htmlContent) {
@@ -643,6 +671,10 @@
                             draggable: 'tbody.segment-group',
                             handle: '.segment-drag-handle',
                             animation: 150,
+                            scroll: true,
+                            scrollSensitivity: 80,
+                            scrollSpeed: 12,
+                            bubbleScroll: true,
                             onEnd: function() { updateRowNumbers(table); }
                         });
                         table.querySelectorAll('tbody.segment-group').forEach(tbody => {
@@ -1650,6 +1682,8 @@
                 XLSX.utils.book_append_sheet(wb, createSheetFromTable(hydraulicTable, false), "水理計算");
             }
 
+            const wb2unused = null;
+
             XLSX.writeFile(wb, `${projName}_全案資料.xlsx`);
             showMessage('已一鍵匯出全案 Excel');
         }
@@ -1898,6 +1932,10 @@
                 draggable: 'tbody.segment-group',
                 handle: '.segment-drag-handle',
                 animation: 150,
+                scroll: true,
+                scrollSensitivity: 80,
+                scrollSpeed: 12,
+                bubbleScroll: true,
                 onEnd: function() {
                     updateRowNumbers(table);
                 }
@@ -3060,15 +3098,14 @@
             const src = panel ? panel.querySelector('table') : null;
             if (!src) { ws.innerHTML = '<p class="text-gray-500 p-4">尚無資料</p>'; return; }
 
-            const KEEP = ['A-1', 'B-1', 'C-1', 'A-2'];
             const segs = [];
             src.querySelectorAll('tbody.segment-group').forEach(tb => {
                 const info = getSegmentInfoForHydraulic(tb);
-                if (info && KEEP.includes(info.grade)) segs.push({ gid: tb.dataset.groupId, info });
+                if (info) segs.push({ gid: tb.dataset.groupId, info });
             });
 
             if (segs.length === 0) {
-                ws.innerHTML = '<p class="text-gray-500 p-4">本專案目前沒有評估分級為 A-1、B-1、C-1 的管段。</p>';
+                ws.innerHTML = '<p class="text-gray-500 p-4">本專案尚無管段資料。</p>';
                 return;
             }
 
@@ -3080,7 +3117,7 @@
                 + th('管段編號') + th('人孔編號<br>(上游)') + th('人孔編號<br>(下游)') + th('原管徑<br>D1(mm)') + th('板帶高度<br>H(mm)')
                 + th('修繕後管徑<br>D2(mm)') + th('上游渠底<br>高程U(m)') + th('下游渠底<br>高程D(m)') + th('檢視長度<br>L(m)')
                 + th('坡度 S(%)') + th('粗糙係數<br>N1(修繕前)') + th('0.5D流量<br>前(CMD)') + th('0.8D流量<br>前(CMD)')
-                + th('粗糙係數<br>N2(修繕後)') + th('0.5D流量<br>後(CMD)') + th('0.8D流量<br>後(CMD)') + th('0.5D<br>水深比')
+                + th('粗糙係數<br>N2(修繕後)') + th('0.5D流量<br>後(CMD)') + th('0.8D流量<br>後(CMD)') + th('0.5D<br>水深比') + th('評估分級<br>A-C')
                 + '</tr></thead><tbody>';
 
             segs.forEach(({ gid, info }) => {
@@ -3101,6 +3138,7 @@
                     + tdCalc('h-E') + inp('U', saved.U, '0.001') + inp('D', saved.D, '0.001') + tdRO(info.length)
                     + tdCalc('h-i') + inp('N1', saved.N1, '0.001') + tdCalc('h-K') + tdCalc('h-L08')
                     + inp('N2', saved.N2, '0.001') + tdCalc('h-N05') + tdCalc('h-O08') + tdCalc('h-P')
+                    + tdRO(info.grade)
                     + '</tr>';
             });
             html += '</tbody></table></div>';
@@ -3157,6 +3195,348 @@
             generateHydraulicTable();
             exportHydraulicReport();
         }
+
+        // ===== 附錄2 預算詳細表 / 附錄3 數量計算表 / 工期計算 =====
+        const BUDGET_DEFAULT_ITEMS = [{"r":7,"role":"category","no":"壹","desc":"總工程費","unit":"式"},{"r":8,"role":"category","no":"一","desc":"污水管清理檢視","unit":"式"},{"r":9,"role":"item","no":"1","desc":"400mm（含）以下污水管擋水、清淤及檢視費(含報表、攝錄光碟)(日間施工)","unit":"M","price":684,"a3":5},{"r":11,"role":"item","no":"2","desc":"500mm 及600mm 污水管擋水、清淤及檢視費(含報表、攝錄光碟)(日間施工)","unit":"M","price":993,"a3":6},{"r":13,"role":"item","no":"3","desc":"700mm 及800mm 污水管擋水、清淤及檢視費(含報表、攝錄光碟)(日間施工)","unit":"M","price":1340,"a3":7},{"r":15,"role":"item","no":"4","desc":"500mm 及600mm 污水管擋水、清淤及檢視費(含報表、攝錄光碟)(夜間施工)","unit":"M","price":1428,"a3":8},{"r":17,"role":"item","no":"5","desc":"700mm 及800mm 污水管擋水、清淤及檢視費(含報表、攝錄光碟)(夜間施工)","unit":"M","price":1959,"a3":9},{"r":19,"role":"item","no":"6","desc":"500mm 及600mm 污水管擋水、導水、清淤及檢視費(含報表、攝錄光碟)(日間施工)","unit":"M","price":1604,"a3":10},{"r":21,"role":"item","no":"7","desc":"700mm 及800mm 污水管擋水、導水、清淤及檢視費(含報表、攝錄光碟)(日間施工)","unit":"M","price":2207,"a3":11},{"r":23,"role":"item","no":"8","desc":"900mm 及1000mm 污水管擋水、導水、清淤及檢視費(含報表、攝錄光碟)(日間施工)","unit":"M","price":4073,"a3":12},{"r":25,"role":"item","no":"9","desc":"500mm 及600mm 污水管擋水、導水、清淤及檢視費(含報表、攝錄光碟)(夜間施工)","unit":"M","price":2310,"a3":13},{"r":27,"role":"item","no":"10","desc":"700mm 及800mm 污水管擋水、導水、清淤及檢視費(含報表、攝錄光碟)(夜間施工)","unit":"M","price":3148,"a3":14},{"r":29,"role":"item","no":"11","desc":"900mm 及1000mm 污水管擋水、導水、清淤及檢視費(含報表、攝錄光碟)(夜間施工)","unit":"M","price":5095,"a3":15},{"r":31,"role":"category","no":"二","desc":"污水管渠局部修補及檢視","unit":"式"},{"r":32,"role":"item","no":"1","desc":"污水管局部修補及檢視費(150mm≦管徑<300mm)(含施工材料、報表、攝錄光碟)","unit":"M","price":17700,"a3":17},{"r":34,"role":"item","no":"2","desc":"污水管局部修補及檢視費(300mm≦管徑<700mm)(含施工材料、報表、攝錄光碟)","unit":"M","price":21361,"a3":18},{"r":36,"role":"item","no":"3","desc":"污水管局部修補及檢視費(700mm≦管徑<1000mm)(含施工材料、報表、攝錄光碟)","unit":"M","price":36920,"a3":19},{"r":38,"role":"item","no":"4","desc":"污水管局部修補及檢視費(1000mm≦管徑<1200mm)(含施工材料、報表、攝錄光碟)","unit":"M","price":54125,"a3":20},{"r":40,"role":"category","no":"三","desc":"污水管內障礙物及堵塞處理","unit":"式"},{"r":41,"role":"item","no":"1","desc":"污水管內油脂硬塊切(打)除及檢視費(150mm≦管徑<300mm)(含報表、攝錄光碟)","unit":"M","price":1730,"a3":22},{"r":43,"role":"item","no":"2","desc":"污水管內油脂硬塊切(打)除及檢視費(300mm≦管徑<500mm)(含報表、攝錄光碟)","unit":"M","price":2086,"a3":23},{"r":45,"role":"item","no":"3","desc":"污水管內油脂硬塊切(打)除及檢視費(500mm≦管徑<700mm)(含報表、攝錄光碟)","unit":"M","price":2624,"a3":24},{"r":47,"role":"item","no":"4","desc":"污水管內油脂硬塊切(打)除及檢視費(700mm≦管徑<1000mm)(含報表、攝錄光碟)","unit":"M","price":3534,"a3":25},{"r":49,"role":"item","no":"5","desc":"污水管內混凝土硬塊打除及檢視費(150mm≦管徑<300mm)(含報表、攝錄光碟)","unit":"M","price":6773,"a3":26},{"r":51,"role":"item","no":"6","desc":"污水管內混凝土硬塊打除及檢視費(300mm≦管徑<500mm)(含報表、攝錄光碟)","unit":"M","price":8127,"a3":27},{"r":53,"role":"item","no":"7","desc":"污水管內混凝土硬塊打除及檢視費(500mm≦管徑<700mm)(含報表、攝錄光碟)","unit":"M","price":10159,"a3":28},{"r":55,"role":"item","no":"8","desc":"污水管內混凝土硬塊打除及檢視費(700mm≦管徑<1000mm)(含報表、攝錄光碟)","unit":"M","price":13544,"a3":29},{"r":57,"role":"item","no":"9","desc":"管內PVC 裡襯切除及檢視費(700mm≦管徑＜1000mm)(含報表、攝錄光碟)","unit":"處","price":14000,"a3":30},{"r":59,"role":"category","no":"四","desc":"污水管整建","unit":"式"},{"r":60,"role":"item","no":"1","desc":"管內局部整建，膠膜內襯補漏工法，150mm≦管徑<300mm(含施工材料、報表、攝錄光碟)","unit":"處","price":31815,"a3":32},{"r":62,"role":"item","no":"2","desc":"管內局部整建，膠膜內襯補漏工法，300mm≦管徑<700mm(含施工材料、報表、攝錄光碟)","unit":"處","price":36488,"a3":33},{"r":64,"role":"item","no":"3","desc":"管內局部整建，膠膜內襯補漏工法，700mm≦管徑<1000mm(含施工材料、報表、攝錄光碟)","unit":"處","price":50542,"a3":34},{"r":66,"role":"item","no":"4","desc":"管內局部整建，人工灌注止漏工法，600mm≦管徑≦800mm(含施工材料、報表、攝錄光碟)","unit":"處","price":45064,"a3":35},{"r":68,"role":"item","no":"5","desc":"管內局部整建，人工灌注止漏工法，900mm≦管徑≦1200mm(含施工材料、報表、攝錄光碟)","unit":"處","price":48564,"a3":36},{"r":70,"role":"item","no":"6","desc":"管內局部整建，不銹鋼片內襯工法，管徑=800mm，L=40cm，t=6mm(SUS316)(含施工材料、報表、攝錄光碟)","unit":"處","price":95000,"a3":37},{"r":72,"role":"item","no":"7","desc":"管內局部整建，不銹鋼片內襯工法，管徑=1000mm，L=40cm，t=8mm(SUS316)(含施工材料、報表、攝錄光碟)","unit":"處","price":108500,"a3":38},{"r":74,"role":"item","no":"8","desc":"管內局部整建，不銹鋼片內襯工法，管徑=1200mm，L=60cm，t=8mm(SUS316)(含施工材料、報表、攝錄光碟)","unit":"處","price":125000,"a3":39},{"r":76,"role":"item","no":"9","desc":"管內區段整建，螺旋內襯擴大工法或螺旋內襯工法，管徑≦300mm(含管線清理(混凝土除外)、施工材料、報表、攝錄光碟)","unit":"M","price":9942,"a3":40},{"r":79,"role":"item","no":"10","desc":"管內區段整建，螺旋內襯擴大工法或螺旋內襯工法，300mm<管徑≦400mm(含管線清理(混凝土除外)、施工材料、報表、攝錄光碟)","unit":"M","price":12748,"a3":41},{"r":82,"role":"item","no":"11","desc":"管內區段整建，螺旋內襯擴大工法或螺旋內襯工法，400mm<管徑≦500mm(含管線清理(混凝土除外)、施工材料、報表、攝錄光碟)","unit":"M","price":16099,"a3":42},{"r":85,"role":"item","no":"12","desc":"管內區段整建，螺旋內襯擴大工法或螺旋內襯工法，500mm<管徑≦700mm(含管線清理(混凝土除外)、施工材料、報表、攝錄光碟)","unit":"M","price":21586,"a3":43},{"r":88,"role":"item","no":"13","desc":"管內區段整建，螺旋內襯擴大工法或螺旋內襯工法，管徑=800mm(含管線清理(混凝土除外)、施工材料、報表、攝錄光碟)","unit":"M","price":35000,"a3":44},{"r":91,"role":"item","no":"14","desc":"人孔內部修繕(含止漏水、清除淤泥、樹根切除)(不分人孔形式與深度)","unit":"座","price":8840,"a3":45},{"r":93,"role":"item","no":"15","desc":"陰井內部修繕(含止漏水、清除淤泥、樹根切除)(不分深度)","unit":"座","price":5894,"a3":46},{"r":95,"role":"category","no":"五","desc":"污水管更新","unit":"式"},{"r":96,"role":"item","no":"1","desc":"短管推進，標稱管徑300mm，黏土，含管材","unit":"M","price":12627,"a3":48},{"r":97,"role":"item","no":"2","desc":"短管推進，標稱管徑400mm，黏土，含管材","unit":"M","price":14056,"a3":49},{"r":98,"role":"item","no":"3","desc":"鋼套管推進，直徑800mm鋼管，管徑300mm管線","unit":"M","price":48629,"a3":50},{"r":100,"role":"item","no":"4","desc":"鋼套管推進，直徑800mm鋼管，管徑400mm管線","unit":"M","price":49365,"a3":51},{"r":102,"role":"item","no":"5","desc":"圓形鋼管工作井，標稱直徑1590mm，4M<埋設深度≦5M","unit":"處","price":293274,"a3":52},{"r":104,"role":"item","no":"6","desc":"圓形鋼管工作井，標稱直徑1590mm，5M<埋設深度≦6M","unit":"處","price":331777,"a3":53},{"r":106,"role":"item","no":"7","desc":"圓形鋼管工作井，標稱直徑2090mm，4M<埋設深度≦5M","unit":"處","price":376264,"a3":54},{"r":108,"role":"item","no":"8","desc":"圓形鋼管工作井，標稱直徑2090mm，5M<埋設深度≦6M","unit":"處","price":432367,"a3":55},{"r":110,"role":"item","no":"9","desc":"圓形鋼管工作井，300mm<標稱管徑≦600mm，到達口","unit":"處","price":51650,"a3":56},{"r":111,"role":"item","no":"10","desc":"圓形鋼管工作井，300mm<標稱管徑≦600mm，推進口","unit":"處","price":51450,"a3":57},{"r":112,"role":"item","no":"11","desc":"管線檢視，小管徑管道閉路電視檢視","unit":"M","price":158,"a3":58},{"r":113,"role":"item","no":"12","desc":"路寬8公尺以下巷道路面修復","unit":"M2","price":2465,"a3":59},{"r":114,"role":"item","no":"13","desc":"路寬超過8公尺以上快慢車道路面修復","unit":"M2","price":2465,"a3":60},{"r":115,"role":"item","no":"14","desc":"0.2cm厚熱處理聚酯標線第Ⅱ型(零星路段繪設)","unit":"M2","price":790,"a3":61},{"r":116,"role":"item","no":"15","desc":"銑刨加鋪5cm瀝青混凝土面層","unit":"M2","price":545,"a3":62},{"r":117,"role":"item","no":"16","desc":"銑刨加鋪5cm瀝青混凝土面層(銑刨加鋪面積100m2以下)","unit":"M2","price":600,"a3":63},{"r":119,"role":"item","no":"17","desc":"銑刨加鋪10cm瀝青混凝土面層","unit":"M2","price":1054,"a3":64},{"r":120,"role":"item","no":"18","desc":"銑刨加鋪10cm瀝青混凝土面層(銑刨加鋪面積100m2以下)","unit":"M2","price":1152,"a3":65},{"r":122,"role":"item","no":"19","desc":"路面銑刨加鋪機具動員補助費","unit":"次","price":30000,"a3":66},{"r":123,"role":"item","no":"20","desc":"機具運輸動員補助費(分管工程)","unit":"案","price":31097,"a3":67},{"r":124,"role":"item","no":"21","desc":"原有混凝土排水管溝拆除及修復〈橫斷面≧30cm)(道路段或社區內等使用)","unit":"M","price":8750,"a3":68},{"r":126,"role":"category","no":"六","desc":"人孔框蓋提昇","unit":"式"},{"r":127,"role":"item","no":"1","desc":"設施及框蓋提昇，標稱直徑600mm，圓形切割，樹脂水泥+骨材邊框","unit":"座","price":22586,"a3":70},{"r":129,"role":"item","no":"2","desc":"設施及框蓋提昇，標稱直徑750mm，圓形切割，樹脂水泥+骨材邊框","unit":"座","price":24431,"a3":71},{"r":131,"role":"item","no":"3","desc":"設施及框蓋提昇，標稱直徑600mm，方形切割，樹脂水泥+骨材邊框","unit":"座","price":28081,"a3":72},{"r":133,"role":"item","no":"4","desc":"設施及框蓋提昇，標稱直徑750mm，方形切割，樹脂水泥+骨材邊框","unit":"座","price":31751,"a3":73},{"r":135,"role":"item","no":"5","desc":"產品，污水管線附屬工作，人孔蓋及蓋座，標稱直徑600mm，球狀石墨鑄鐵，含防止墜落設施","unit":"組","price":16200,"a3":74},{"r":137,"role":"item","no":"6","desc":"產品，污水管線附屬工作，人孔蓋及蓋座，標稱直徑750mm，球狀石墨鑄鐵，含防止墜落設施","unit":"組","price":21400,"a3":75},{"r":139,"role":"item","no":"7","desc":"產品，污水管線附屬工作，人孔蓋及蓋座，標稱直徑900mm，球狀石墨鑄鐵，含防止墜落設施","unit":"組","price":30600,"a3":76},{"r":141,"role":"category","no":"七","desc":"其他工程","unit":"式"},{"r":142,"role":"item","no":"1","desc":"材料堆置場地補助費","unit":"月","price":25000,"a3":78,"auto":"daysM"},{"r":143,"role":"item","no":"2","desc":"道路開挖即時攝影傳輸設備補助費","unit":"月","price":3285,"a3":79},{"r":144,"role":"item","no":"3","desc":"道路挖掘許可作業人員補助費","unit":"月","price":33370,"a3":80},{"r":145,"role":"item","no":"4","desc":"施工照相及攝(錄)影補助費","unit":"月","price":3150,"a3":81,"auto":"daysM"},{"r":146,"role":"item","no":"5","desc":"行政人員駐點補助費","unit":"月","price":50000,"a3":82,"auto":"daysM"},{"r":147,"role":"item","no":"6","desc":"測量補助費","unit":"式","price":22000,"a3":83},{"r":148,"role":"item","no":"7","desc":"透地雷達人孔探測費(含動員費及交通管制等)","unit":"座","price":36976,"a3":84},{"r":149,"role":"category","no":"八","desc":"搶救及清運部分","unit":"式"},{"r":150,"role":"item","no":"1","desc":"專業人員","unit":"時","price":600,"a3":86},{"r":151,"role":"item","no":"2","desc":"吊卡車租金，15米-噸","unit":"時","price":1920,"a3":87},{"r":152,"role":"item","no":"3","desc":"傾卸貨車租金，總重8-8.9t(含垃圾、雜物運棄)","unit":"時","price":1500,"a3":88},{"r":153,"role":"item","no":"4","desc":"傾卸貨車租金，總重15-15.9t(含垃圾、雜物運棄)","unit":"時","price":1690,"a3":89},{"r":154,"role":"item","no":"5","desc":"貨車租金，總重3.5t(含垃圾、雜物運棄)","unit":"時","price":1350,"a3":90},{"r":155,"role":"item","no":"6","desc":"貨車租金，總重6.5t(含垃圾、雜物運棄)","unit":"時","price":1415,"a3":91},{"r":156,"role":"item","no":"7","desc":"開挖機租金[PC-45(同一型式)標準型挖臂及挖斗]","unit":"時","price":1663,"a3":92},{"r":157,"role":"item","no":"8","desc":"傾卸貨車租金，總重35-35.9t(含垃圾、雜物運棄)","unit":"時","price":1950,"a3":93},{"r":158,"role":"item","no":"9","desc":"發電機動復原費(每台機組)","unit":"次","price":5200,"a3":94},{"r":159,"role":"item","no":"10","desc":"鏈鋸租用(含油料及損耗)","unit":"時","price":260,"a3":95},{"r":160,"role":"item","no":"11","desc":"輪型鏟裝機租金[挖斗容量0.4立方公尺以上]","unit":"時","price":1365,"a3":96},{"r":161,"role":"item","no":"12","desc":"沉水式抽水機，4英吋，租金(含油料及運費)","unit":"時","price":1345,"a3":97},{"r":162,"role":"item","no":"13","desc":"沉水式抽水機，6英吋，租金(含油料及運費)","unit":"時","price":1635,"a3":98},{"r":163,"role":"item","no":"14","desc":"一般廢棄物處理","unit":"頓","price":3603,"a3":99},{"r":164,"role":"item","no":"15","desc":"重大災害緊急動員補助費","unit":"次","price":150000,"a3":100},{"r":165,"role":"category","no":"九","desc":"交通維持費用","unit":"式"},{"r":166,"role":"item","no":"1","desc":"活動式鋼管圍籬(不含告示牌；高1800mm*長1800mm)((折舊1/3)；含宣導廣告圖片)","unit":"M","price":586,"a3":102,"auto":"seg72"},{"r":168,"role":"item","no":"2","desc":"工程告示牌及工地標誌，工程告示牌，鋁質","unit":"面","price":2450,"a3":103},{"r":169,"role":"item","no":"3","desc":"工程告示牌及工地標誌，局限空間作業場所","unit":"面","price":1300,"a3":104},{"r":170,"role":"item","no":"4","desc":"工程告示牌及工地標誌，移動式工程告示牌","unit":"面","price":1370,"a3":105},{"r":171,"role":"item","no":"5","desc":"工程告示牌及工地標誌，柔性告示牌","unit":"面","price":750,"a3":106},{"r":172,"role":"item","no":"6","desc":"施工標誌，折舊","unit":"座","price":108,"a3":107},{"r":173,"role":"item","no":"7","desc":"活動型拒馬，折舊","unit":"個","price":65,"a3":108,"auto":"seg1"},{"r":174,"role":"item","no":"8","desc":"交通錐(加重底座)，含連桿，高70cm，折舊","unit":"個","price":46,"a3":109,"auto":"seg8"},{"r":175,"role":"item","no":"9","desc":"施工警告燈號，折舊","unit":"個","price":83,"a3":110,"auto":"seg4"},{"r":176,"role":"item","no":"10","desc":"旗手","unit":"工","price":2248,"a3":111,"auto":"flag"},{"r":177,"role":"item","no":"11","desc":"臨時指揮設施，電動旗手補助費","unit":"組","price":2358,"a3":112},{"r":178,"role":"item","no":"12","desc":"義交協勤費(06:00~22:00)","unit":"時","price":280,"a3":113},{"r":179,"role":"item","no":"13","desc":"義交協勤費(22:00~翌日06:00)","unit":"時","price":350,"a3":114},{"r":180,"role":"category","no":"十","desc":"安全衛生費用","unit":"式"},{"r":181,"role":"item","no":"1","desc":"施工設備檢查及管理費","unit":"式","price":329280,"a3":116,"auto":"equip"},{"r":182,"role":"item","no":"2","desc":"臨時用電安全檢查及維護","unit":"式","price":21333,"a3":117},{"r":183,"role":"item","no":"3","desc":"臨時指揮設施，指揮棒","unit":"個","price":363,"a3":118},{"r":184,"role":"item","no":"4","desc":"職業安全衛生，保護器材，頭部，安全帽","unit":"頂","price":252,"a3":119},{"r":185,"role":"item","no":"5","desc":"職業安全衛生，保護器材，手部，工作手套","unit":"雙","price":77,"a3":120},{"r":186,"role":"item","no":"6","desc":"職業安全衛生，保護器材，呼吸，口罩","unit":"個","price":32,"a3":121},{"r":187,"role":"item","no":"7","desc":"職業安全衛生，保護器材，眼睛，護目鏡，遮光護目鏡","unit":"個","price":189,"a3":122},{"r":188,"role":"item","no":"8","desc":"職業安全衛生，保護器材，身體，反光背心","unit":"套","price":368,"a3":123},{"r":189,"role":"item","no":"9","desc":"職業安全衛生，保護器材，身體，工作背心","unit":"套","price":315,"a3":124},{"r":190,"role":"item","no":"10","desc":"職業安全衛生，保護器材，足部，安全鞋","unit":"雙","price":750,"a3":125},{"r":191,"role":"item","no":"11","desc":"職業安全衛生，保護器材，高處作業，安全帶，背負式安全帶","unit":"具","price":895,"a3":126},{"r":193,"role":"item","no":"12","desc":"職業安全衛生，一般器材，滅火器","unit":"支","price":630,"a3":127},{"r":194,"role":"item","no":"13","desc":"職業安全衛生，一般器材，有害氣體測定器","unit":"套","price":23200,"a3":128},{"r":195,"role":"item","no":"14","desc":"職業安全衛生，一般器材，機械通風設備","unit":"處","price":1050,"a3":129,"auto":"seg1"},{"r":196,"role":"item","no":"15","desc":"職業安全衛生，一般器材，生命偵測器(儀)","unit":"具","price":8940,"a3":130},{"r":197,"role":"item","no":"16","desc":"職業安全衛生，保護器材，高處作業，防墜器","unit":"具","price":28400,"a3":131},{"r":198,"role":"item","no":"17","desc":"其他安全防護費(含急救設備、搶救器材及設施)","unit":"式","price":58692,"a3":132,"def":0.001},{"r":199,"role":"item","no":"18","desc":"其他安全衛生設施","unit":"式","price":195640,"a3":133,"def":0.001},{"r":200,"role":"item","no":"19","desc":"環境保護，工地清潔費","unit":"M2","price":55,"a3":134,"auto":"clean"},{"r":201,"role":"item","no":"20","desc":"環境保護，沖洗設備，洗車沖洗費","unit":"月","price":12370,"a3":135},{"r":202,"role":"item","no":"21","desc":"職安人員人事及行政作業補助費","unit":"月","price":28590,"a3":136,"auto":"daysM"},{"r":203,"role":"category","no":"十一","desc":"人孔陰井電腦屬性資料建檔","unit":"式"},{"r":204,"role":"item","no":"1","desc":"人孔(含陰井)設施地面測量(含X.Y.Z座標，高程，點支距)","unit":"座","price":800,"a3":138},{"r":206,"role":"item","no":"2","desc":"人孔(含陰井)設施內部測量(含管底高程)","unit":"座","price":1064,"a3":139},{"r":207,"role":"item","no":"4","desc":"人孔(含陰井、清除孔)設施屬性資料及建檔","unit":"冊","price":5000,"a3":140},{"r":208,"role":"item","no":"4","desc":"圖冊製作費","unit":"冊","price":7500,"a3":141},{"r":209,"role":"item","no":"5","desc":"道路挖掘許可證申請及結案補助費","unit":"案","price":120,"a3":142},{"r":210,"role":"item","no":"十二","desc":"得標廠商自主品管費","unit":"式","price":1760000,"a3":143,"def":0.01},{"r":211,"role":"item","no":"十三","desc":"得標廠商自主品管材料檢驗費","unit":"式","price":736094,"a3":144,"def":0.012},{"r":212,"role":"category","no":"十四","desc":"營建剩餘土石方運棄","unit":"式"},{"r":213,"role":"item","no":"1","desc":"臺北港收容管理費","unit":"M3","price":240,"a3":146},{"r":214,"role":"item","no":"2","desc":"營建剩餘土石方(B2類，含水土保持，送臺北港)","unit":"M3","price":1056,"a3":147},{"r":215,"role":"item","no":"3","desc":"營建剩餘土石方(B5類，含水土保持，送臺北港)","unit":"M3","price":1056,"a3":148},{"r":216,"role":"item","no":"4","desc":"營建剩餘土石方(B2類，含水土保持)","unit":"M3","price":1909,"a3":149},{"r":217,"role":"item","no":"5","desc":"營建剩餘土石方(B5類，含水土保持)","unit":"M3","price":2017,"a3":150},{"r":218,"role":"item","no":"6","desc":"營建混合物(R0503類，含水土保持)","unit":"M3","price":10317,"a3":151},{"r":219,"role":"total","no":"","desc":"小計(第一～十三項)","unit":""},{"r":220,"role":"item","no":"十五","desc":"稅什費(含工程保險費、營業稅及包商利潤)","unit":"式","price":12485928,"a3":152,"def":0.016},{"r":221,"role":"total","no":"","desc":"合計（施工費）","unit":""},{"r":222,"role":"item","no":"十六","desc":"細部設計費用","unit":"式","price":5040000},{"r":223,"role":"total","no":"","desc":"總價(總計)","unit":""}];
+        const SCHEDULE_METHODS = [{"name":"局部整建-膠膜內襯（150mm≦管徑<300mm）","rate":3,"unit":"處/天","mode":"div","src":[32]},{"name":"局部整建-膠膜內襯（300mm≦管徑<600mm）","rate":2,"unit":"處/天","mode":"div","src":[33]},{"name":"局部整建-膠膜內襯（600mm≦管徑<1000mm）","rate":2,"unit":"處/天","mode":"div","src":[34]},{"name":"局部整建-不銹鋼片內襯（1000mm≦管徑<1200mm）","rate":1,"unit":"處/天","mode":"div","src":[37,38,39]},{"name":"局部整建-人工灌注止漏（管徑500mm以上）","rate":3,"unit":"處/天","mode":"div","src":[35,36]},{"name":"區段整建-螺旋內襯（管徑≦300mm）","rate":80,"unit":"m/天","mode":"div","src":[40]},{"name":"區段整建-螺旋內襯（300mm<管徑≦500mm）","rate":60,"unit":"m/天","mode":"div","src":[41,42]},{"name":"區段整建-螺旋內襯（500mm<管徑≦700mm）","rate":50,"unit":"m/天","mode":"div","src":[43]},{"name":"區段整建-螺旋內襯（700mm<管徑≦800mm）","rate":40,"unit":"m/天","mode":"div","src":[44]},{"name":"區段整建-螺旋內襯（800mm<管徑≦1000mm）","rate":30,"unit":"m/天","mode":"div","src":[]},{"name":"區段整建-螺旋內襯（1000mm<管徑≦1200mm）","rate":20,"unit":"m/天","mode":"div","src":[]},{"name":"推進工法-沉設第一座工作井","rate":3,"unit":"天/座","mode":"mul","src":[52,53,54,55,56,57]},{"name":"推進工法-一般土層","rate":7,"unit":"m/天","mode":"div","src":[48,49,50,51]},{"name":"推進工法-礫石層","rate":5,"unit":"m/天","mode":"div","src":[]},{"name":"推進工法-岩盤層","rate":3.5,"unit":"m/天","mode":"div","src":[]},{"name":"推進工法-卵礫石層","rate":2,"unit":"m/天","mode":"div","src":[]},{"name":"推進工法-人孔收築及場地整理","rate":10,"unit":"日","mode":"mul","src":[]},{"name":"明挖工法-道路段","rate":6,"unit":"m/天","mode":"div","src":[]},{"name":"明挖工法-後巷段","rate":4,"unit":"m/天","mode":"div","src":[]},{"name":"陰井內部修繕（不分深度）","rate":3,"unit":"座/天","mode":"div","src":[46]},{"name":"人孔內部修繕（不分形式與深度）","rate":2,"unit":"座/天","mode":"div","src":[45]},{"name":"人孔提升","rate":3,"unit":"座/天","mode":"div","src":[70,71,72,73]},{"name":"管內PVC裡襯切除及檢視（700mm≦管徑<1000mm）","rate":5,"unit":"處/天","mode":"div","src":[30]}];
+        const SCHEDULE_FIXED = [{"name":"前置作業","days":2},{"name":"場地整理","days":3}];
+        const SCHEDULE_FACTOR = 1.4;
+
+        const BUDGET_KEEP_GRADES = ['A-1','B-1','C-1','A-2'];
+        const CJK_ORDER = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12,'十三':13,'十四':14,'十五':15,'十六':16};
+
+        function bround(v,dp){ const m=Math.pow(10,dp); return Math.round((v+Number.EPSILON)*m)/m; }
+        function fmtMoney(v){ if(v==null||v===''||isNaN(v)) return ''; return (Math.round(v*100)/100).toLocaleString('en-US',{maximumFractionDigits:2}); }
+        function fmtNum(v){ if(v==null||v===''||isNaN(v)) return ''; return (Math.round(v*10000)/10000).toString(); }
+
+        function budgetSegCount(){
+            const panel = document.querySelector('#panel-'+activeProjectId);
+            if(!panel) return 0;
+            let n=0;
+            panel.querySelectorAll('tbody.segment-group').forEach(tb=>{
+                const info = getSegmentInfoForHydraulic(tb);
+                if(info && BUDGET_KEEP_GRADES.includes(info.grade)) n++;
+            });
+            return n;
+        }
+
+        function getBudget(){
+            if(!budgetData[activeProjectId]){
+                budgetData[activeProjectId] = {
+                    items: BUDGET_DEFAULT_ITEMS.map(it=>Object.assign({}, it, {qtyManual:null, extra:{}})),
+                    extraCols: [],
+                    params: { seg:null, face:1 }
+                };
+            }
+            const b = budgetData[activeProjectId];
+            if(!b.items) b.items = BUDGET_DEFAULT_ITEMS.map(it=>Object.assign({},it,{qtyManual:null,extra:{}}));
+            if(!b.extraCols) b.extraCols = [];
+            if(!b.params) b.params = { seg:null, face:1 };
+            b.items.forEach(it=>{ if(!it.extra) it.extra={}; });
+            return b;
+        }
+
+        function budgetParams(){
+            const b=getBudget();
+            const seg = (b.params.seg!=null && b.params.seg!=='') ? Number(b.params.seg) : budgetSegCount();
+            const face = (b.params.face!=null && b.params.face!=='') ? Number(b.params.face) : 1;
+            const days = computeScheduleDays(seg, face);
+            return { seg, face, days };
+        }
+
+        function resolveItemQty(it, P){
+            if(it.qtyManual!=null && it.qtyManual!=='' && !isNaN(Number(it.qtyManual))) return Number(it.qtyManual);
+            if(it.auto){
+                switch(it.auto){
+                    case 'daysM': return bround(P.days/30,2);
+                    case 'seg72': return bround(P.seg*7.2,2);
+                    case 'seg1': return P.seg*1;
+                    case 'seg8': return P.seg*8;
+                    case 'seg4': return P.seg*4;
+                    case 'flag': return P.seg*P.days*P.face;
+                    case 'equip': return it.price? bround((P.days*2744/8)/it.price,2):0;
+                    case 'clean': return bround(1.21*P.seg,2);
+                }
+            }
+            if(it.def!=null) return it.def;
+            return 0;
+        }
+
+        function qtyByA3(a3, P){
+            const b=getBudget();
+            const it = b.items.find(x=>x.a3===a3);
+            return it? resolveItemQty(it,P):0;
+        }
+
+        // 工期天數（不依賴 days，避免循環）
+        function computeScheduleDays(seg, face){
+            const P = { seg, face, days:0 };
+            let subtotal=0;
+            SCHEDULE_METHODS.forEach(m=>{
+                let q=0; m.src.forEach(a3=>{ q += qtyByA3(a3,P); });
+                if(q>0) subtotal += (m.mode==='mul'? q*m.rate : q/(m.rate*face));
+            });
+            SCHEDULE_FIXED.forEach(fx=>{ subtotal += fx.days; });
+            return Math.ceil(subtotal*SCHEDULE_FACTOR);
+        }
+
+        function computeScheduleFull(){
+            const b=getBudget();
+            const seg = (b.params.seg!=null && b.params.seg!=='') ? Number(b.params.seg) : budgetSegCount();
+            const face = (b.params.face!=null && b.params.face!=='') ? Number(b.params.face) : 1;
+            const P={seg,face,days:0};
+            const rows=[]; let subtotal=0;
+            SCHEDULE_METHODS.forEach(m=>{
+                let q=0; m.src.forEach(a3=>q+=qtyByA3(a3,P));
+                const has=q>0;
+                const f = has? (m.mode==='mul'? q*m.rate : q/(m.rate*face)) : null;
+                if(has) subtotal+=f;
+                rows.push({name:m.name,rate:m.rate,unit:m.unit,face,qty:has?q:'',days:f});
+            });
+            SCHEDULE_FIXED.forEach(fx=>{ rows.push({name:fx.name,rate:fx.days,unit:'天',face:'',qty:'',days:fx.days,fixed:true}); subtotal+=fx.days; });
+            const total=subtotal*SCHEDULE_FACTOR;
+            return {rows,subtotal,factor:SCHEDULE_FACTOR,total,recommend:Math.ceil(total),seg,face};
+        }
+
+        // 計算全部項目金額 + 分類/總計
+        function computeBudget(){
+            const b=getBudget(); const P=budgetParams(); const items=b.items;
+            items.forEach(it=>{
+                if(it.price!=null){ it._qty=resolveItemQty(it,P); it._amt=it._qty*it.price; }
+                else { it._qty=null; it._amt=null; }
+            });
+            // 分類（無單價的中文編號列）金額 = 之後子項加總，直到下一個中文編號或 total
+            for(let i=0;i<items.length;i++){
+                const it=items[i];
+                if(CJK_ORDER[it.no] && it.price==null && it.role!=='total'){
+                    let sum=0;
+                    for(let j=i+1;j<items.length;j++){
+                        const nx=items[j];
+                        if(CJK_ORDER[nx.no] || nx.role==='total') break;
+                        if(nx._amt!=null) sum+=nx._amt;
+                    }
+                    it._amt=sum;
+                }
+            }
+            const topAmt=(idx)=>{ const it=items.find(x=>CJK_ORDER[x.no]===idx); return it&&it._amt!=null?it._amt:0; };
+            let subtotalMain=0; for(let k=1;k<=13;k++) subtotalMain+=topAmt(k);
+            const cat14=topAmt(14), tax=topAmt(15), detail16=topAmt(16);
+            const construct=cat14+subtotalMain+tax;
+            const grand=construct+detail16;
+            return { subtotalMain, cat14, tax, detail16, construct, grand, P };
+        }
+
+        // ---------- 顯示切換 ----------
+        function showBudgetView(){ hideAllViews(); document.getElementById('budgetHeader').classList.remove('hidden'); document.getElementById('budgetWorkspace').classList.remove('hidden'); generateBudgetTable(); }
+        function showQuantityView(){ hideAllViews(); document.getElementById('quantityHeader').classList.remove('hidden'); document.getElementById('quantityWorkspace').classList.remove('hidden'); generateQuantityTable(); }
+        function showScheduleView(){ hideAllViews(); document.getElementById('scheduleHeader').classList.remove('hidden'); document.getElementById('scheduleWorkspace').classList.remove('hidden'); generateScheduleTable(); }
+
+        // ---------- 編輯處理 ----------
+        function budgetEdit(idx, field, value){
+            const b=getBudget();
+            if(!b.items[idx]) return;
+            if(field==='price'){ b.items[idx].price = value===''?null:Number(value); }
+            else if(field==='qtyManual'){ b.items[idx].qtyManual = value===''?null:value; }
+            else b.items[idx][field]=value;
+            refreshBudgetComputed();
+            scheduleAutoSave();
+        }
+        function budgetEditExtra(idx, colId, value){
+            const b=getBudget();
+            if(!b.items[idx]) return;
+            if(!b.items[idx].extra) b.items[idx].extra={};
+            b.items[idx].extra[colId]=value;
+            scheduleAutoSave();
+        }
+        function budgetAddColumn(){
+            const name = prompt('新欄位名稱：','備註');
+            if(name==null) return;
+            const b=getBudget();
+            b.extraCols.push({ id:'c'+Date.now(), name:name||'欄位' });
+            generateBudgetTable(); scheduleAutoSave();
+        }
+        function budgetDeleteColumn(colId){
+            const b=getBudget();
+            b.extraCols = b.extraCols.filter(c=>c.id!==colId);
+            b.items.forEach(it=>{ if(it.extra) delete it.extra[colId]; });
+            generateBudgetTable(); scheduleAutoSave();
+        }
+        function budgetAddRow(idx){
+            const b=getBudget();
+            const row={ role:'item', no:'', desc:'', unit:'', price:0, qtyManual:0, extra:{} };
+            b.items.splice(idx+1,0,row);
+            generateBudgetTable(); scheduleAutoSave();
+        }
+        function budgetDeleteRow(idx){
+            const b=getBudget();
+            if(!confirm('確定刪除此列？')) return;
+            b.items.splice(idx,1);
+            generateBudgetTable(); scheduleAutoSave();
+        }
+
+        // 只更新金額/數量顯示，不重繪（保留輸入焦點）
+        function refreshBudgetComputed(){
+            const t = computeBudget();
+            const b = getBudget();
+            b.items.forEach((it,idx)=>{
+                const amtCell = document.querySelector('[data-bud-amt="'+idx+'"]');
+                if(amtCell) amtCell.textContent = it._amt!=null? fmtMoney(it._amt):'';
+                const qi = document.querySelector('[data-bud-autoqty="'+idx+'"]');
+                if(qi && document.activeElement!==qi){ qi.value = it._qty!=null? fmtNum(it._qty):''; }
+            });
+            const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=fmtMoney(v); };
+            set('budTotalMain', t.subtotalMain); set('budTotalConstruct', t.construct); set('budTotalGrand', t.grand); set('budTotalOne', t.grand);
+            // 工期若顯示中亦更新
+            if(!document.getElementById('scheduleWorkspace').classList.contains('hidden')) generateScheduleTable();
+            if(!document.getElementById('quantityWorkspace').classList.contains('hidden')) refreshQuantityComputed();
+        }
+
+        // ---------- 附錄2 預算詳細表 ----------
+        function generateBudgetTable(){
+            const b=getBudget(); const t=computeBudget(); const items=b.items;
+            const th=(x,cls)=>'<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm '+(cls||'')+'">'+x+'</th>';
+            let h='<table id="budgetTable" class="border-collapse text-sm w-full"><thead><tr>';
+            h+=th('項次')+th('項目及說明','text-left min-w-[320px]')+th('單位')+th('數量')+th('單價')+th('複價');
+            b.extraCols.forEach(c=>{ h+='<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm">'+c.name+' <button onclick="budgetDeleteColumn(\''+c.id+'\')" class="text-red-500 ml-1" title="刪除欄">✕</button></th>'; });
+            h+=th('操作');
+            h+='</tr></thead><tbody>';
+            const inp=(idx,field,val,extra)=>'<input value="'+(val==null?'':String(val).replace(/"/g,'&quot;'))+'" '+(extra||'')+' onchange="budgetEdit('+idx+',\''+field+'\',this.value)" class="w-full px-1 py-0.5 bg-transparent outline-none focus:bg-yellow-50">';
+            items.forEach((it,idx)=>{
+                const isCat = CJK_ORDER[it.no] && it.price==null && it.role!=='total';
+                const isTotal = it.role==='total';
+                if(isTotal){
+                    let val = it._amt;
+                    if(/小計/.test(it.desc)) val=t.subtotalMain;
+                    else if(/合計/.test(it.desc)) val=t.construct;
+                    else if(/總價|總計/.test(it.desc)) val=t.grand;
+                    const tid = /小計/.test(it.desc)?'budTotalMain':(/合計/.test(it.desc)?'budTotalConstruct':'budTotalGrand');
+                    h+='<tr class="bg-gray-50 font-bold"><td class="border border-gray-400 px-2 py-1 text-center">'+(it.no||'')+'</td><td class="border border-gray-400 px-2 py-1" colspan="4">'+it.desc+'</td><td class="border border-gray-400 px-2 py-1 text-right" id="'+tid+'">'+fmtMoney(val)+'</td>'+b.extraCols.map(()=>'<td class="border border-gray-400"></td>').join('')+'<td class="border border-gray-400 text-center"><button onclick="budgetDeleteRow('+idx+')" class="text-red-400" title="刪列">✕</button></td></tr>';
+                    return;
+                }
+                if(it.no==='壹'){
+                    h+='<tr class="bg-indigo-50 font-bold"><td class="border border-gray-400 px-2 py-1 text-center">壹</td><td class="border border-gray-400 px-2 py-1">'+inp(idx,'desc',it.desc)+'</td><td class="border border-gray-400 px-2 py-1 text-center">'+(it.unit||'')+'</td><td class="border border-gray-400"></td><td class="border border-gray-400"></td><td class="border border-gray-400 px-2 py-1 text-right" id="budTotalOne">'+fmtMoney(t.grand)+'</td>'+b.extraCols.map(()=>'<td class="border border-gray-400"></td>').join('')+'<td class="border border-gray-400 text-center"><button onclick="budgetAddRow('+idx+')" class="text-blue-400" title="下方加列">＋</button></td></tr>';
+                    return;
+                }
+                const rowCls = isCat? 'bg-blue-50 font-semibold':'';
+                h+='<tr class="'+rowCls+'">';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+inp(idx,'no',it.no,'style="text-align:center"')+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1">'+inp(idx,'desc',it.desc)+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+inp(idx,'unit',it.unit,'style="text-align:center"')+'</td>';
+                if(isCat){
+                    h+='<td class="border border-gray-400"></td><td class="border border-gray-400"></td>';
+                    h+='<td class="border border-gray-400 px-2 py-1 text-right" data-bud-amt="'+idx+'">'+fmtMoney(it._amt)+'</td>';
+                } else {
+                    h+='<td class="border border-gray-400 px-2 py-1"><input value="'+(it._qty!=null?fmtNum(it._qty):'')+'" data-bud-autoqty="'+idx+'" onchange="budgetEdit('+idx+',\'qtyManual\',this.value)" class="w-20 px-1 py-0.5 text-right bg-yellow-50 outline-none focus:ring-1 focus:ring-indigo-400" title="可手動覆蓋，留空恢復自動"></td>';
+                    h+='<td class="border border-gray-400 px-2 py-1">'+inp(idx,'price',it.price,'style="text-align:right"')+'</td>';
+                    h+='<td class="border border-gray-400 px-2 py-1 text-right" data-bud-amt="'+idx+'">'+fmtMoney(it._amt)+'</td>';
+                }
+                b.extraCols.forEach(c=>{ h+='<td class="border border-gray-400 px-2 py-1">'+inp(idx,'__extra_'+c.id, (it.extra&&it.extra[c.id])||'')+'</td>'; });
+                h+='<td class="border border-gray-400 px-1 py-1 text-center whitespace-nowrap"><button onclick="budgetAddRow('+idx+')" class="text-blue-400 mr-1" title="下方加列">＋</button><button onclick="budgetDeleteRow('+idx+')" class="text-red-400" title="刪列">✕</button></td>';
+                h+='</tr>';
+            });
+            h+='</tbody></table>';
+            h+='<p class="text-gray-500 text-xs mt-3">說明：數量會由「附錄3 數量計算表」自動帶入（黃底可手動覆蓋，留空恢復自動）；單價、項目說明可直接編輯；可用＋／✕新增或刪除列，右上「＋新增欄」可加自訂欄位。稅什費、品管費等以比例估算之式項目已預帶預設值，可手動調整。</p>';
+            document.getElementById('budgetWorkspace').innerHTML=h;
+            // 攔截 extra 欄位 onchange（因 field 名以 __extra_ 開頭）
+            document.querySelectorAll('#budgetTable input[onchange*="__extra_"]').forEach(el=>{
+                el.setAttribute('onchange', el.getAttribute('onchange').replace(/budgetEdit\((\d+),'__extra_([^']+)',this.value\)/, "budgetEditExtra($1,'$2',this.value)"));
+            });
+        }
+
+        // ---------- 附錄3 數量計算表 ----------
+        function refreshQuantityComputed(){
+            const b=getBudget(); const P=budgetParams();
+            b.items.forEach((it,idx)=>{
+                if(it.price==null && CJK_ORDER[it.no]) return;
+                const qi=document.querySelector('[data-qty-autoq="'+idx+'"]');
+                if(qi && document.activeElement!==qi){ const q=resolveItemQty(it,P); qi.value = q? fmtNum(q):''; }
+            });
+        }
+        function generateQuantityTable(){
+            const b=getBudget(); const P=budgetParams(); const items=b.items;
+            const th=(x,cls)=>'<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm '+(cls||'')+'">'+x+'</th>';
+            let h='<div class="mb-3 text-sm text-gray-600">管段數量(自動)：<b>'+P.seg+'</b> 段　工作面：<b>'+P.face+'</b>　施工工期(自動)：<b>'+P.days+'</b> 天　（可於「工期計算」頁調整參數）</div>';
+            h+='<table id="quantityTable" class="border-collapse text-sm w-full"><thead><tr>';
+            h+=th('項次')+th('項目及說明','text-left min-w-[340px]')+th('單位')+th('使用數量')+th('說明');
+            h+='</tr></thead><tbody>';
+            items.forEach((it,idx)=>{
+                if(it.role==='total') return;
+                const isCat = CJK_ORDER[it.no] && it.price==null;
+                if(isCat){
+                    h+='<tr class="bg-blue-50 font-semibold"><td class="border border-gray-400 px-2 py-1 text-center">'+it.no+'</td><td class="border border-gray-400 px-2 py-1">'+it.desc+'</td><td class="border border-gray-400 px-2 py-1 text-center">'+(it.unit||'式')+'</td><td class="border border-gray-400"></td><td class="border border-gray-400"></td></tr>';
+                    return;
+                }
+                if(it.no==='壹') return;
+                const q=resolveItemQty(it,P);
+                const note = it.auto? '（自動計算）' : (it.def!=null? '（預設值，可調整）':'');
+                h+='<tr>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+(it.no||'')+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1">'+it.desc+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+(it.unit||'')+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1"><input value="'+(q?fmtNum(q):'')+'" data-qty-autoq="'+idx+'" onchange="quantityEdit('+idx+',this.value)" class="w-24 px-1 py-0.5 text-right bg-yellow-50 outline-none focus:ring-1 focus:ring-teal-400"></td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-gray-500 text-xs">'+note+'</td>';
+                h+='</tr>';
+            });
+            h+='</tbody></table>';
+            h+='<p class="text-gray-500 text-xs mt-3">說明：填寫「使用數量」後會自動代入附錄2 預算詳細表並重算複價。標示「自動計算」者依管段數、工期、工作面自動求得，仍可手動覆蓋（留空恢復自動）。</p>';
+            document.getElementById('quantityWorkspace').innerHTML=h;
+        }
+        function quantityEdit(idx, value){
+            const b=getBudget();
+            if(!b.items[idx]) return;
+            b.items[idx].qtyManual = value===''?null:value;
+            refreshQuantityComputed();
+            if(!document.getElementById('budgetWorkspace').classList.contains('hidden')) refreshBudgetComputed();
+            if(!document.getElementById('scheduleWorkspace').classList.contains('hidden')) generateScheduleTable();
+            scheduleAutoSave();
+        }
+
+        // ---------- 工期計算 ----------
+        function generateScheduleTable(){
+            const b=getBudget(); const s=computeScheduleFull();
+            const th=(x,cls)=>'<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm '+(cls||'')+'">'+x+'</th>';
+            let h='<div class="mb-4 flex flex-wrap items-center gap-4 text-sm">';
+            h+='<label class="flex items-center gap-2">管段數量<input type="number" value="'+(b.params.seg!=null&&b.params.seg!==''?b.params.seg:'')+'" placeholder="自動 '+budgetSegCount()+'" onchange="scheduleParam(\'seg\',this.value)" class="w-24 px-2 py-1 border rounded"></label>';
+            h+='<label class="flex items-center gap-2">工作面<input type="number" value="'+(b.params.face!=null?b.params.face:1)+'" onchange="scheduleParam(\'face\',this.value)" class="w-20 px-2 py-1 border rounded"></label>';
+            h+='<span class="text-gray-500">管段數量留空＝自動採用「提報修繕」管段數（'+budgetSegCount()+' 段）</span>';
+            h+='</div>';
+            h+='<table id="scheduleTable" class="border-collapse text-sm w-full"><thead><tr>';
+            h+=th('工法','text-left min-w-[300px]')+th('工率')+th('單位')+th('工作面')+th('數量')+th('工期(天)');
+            h+='</tr></thead><tbody>';
+            s.rows.forEach(r=>{
+                h+='<tr'+(r.fixed?' class="bg-gray-50"':'')+'>';
+                h+='<td class="border border-gray-400 px-2 py-1">'+r.name+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+r.rate+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+r.unit+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-center">'+(r.face===''?'':r.face)+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-right">'+(r.qty===''?'':fmtNum(r.qty))+'</td>';
+                h+='<td class="border border-gray-400 px-2 py-1 text-right">'+(r.days==null?'':fmtNum(Math.round(r.days*10000)/10000))+'</td>';
+                h+='</tr>';
+            });
+            const totRow=(label,val,cls)=>'<tr class="'+(cls||'')+' font-semibold"><td class="border border-gray-400 px-2 py-1" colspan="5">'+label+'</td><td class="border border-gray-400 px-2 py-1 text-right">'+val+'</td></tr>';
+            h+=totRow('工期小計(天)', fmtNum(Math.round(s.subtotal*10000)/10000));
+            h+=totRow('工期係數', s.factor);
+            h+=totRow('工期合計(天)（小計×係數）', fmtNum(Math.round(s.total*10000)/10000));
+            h+=totRow('建議工期(天)（無條件進位）', s.recommend, 'bg-amber-100');
+            h+='</tbody></table>';
+            h+='<p class="text-gray-500 text-xs mt-3">說明：數量由「附錄3 數量計算表」自動帶入；建議工期＝(各工法工期＋前置作業＋場地整理)×係數1.4 無條件進位，並自動回填為施工工期，連動附錄3 中以工期估算的項目（材料堆置、行政人員、旗手等）。</p>';
+            document.getElementById('scheduleWorkspace').innerHTML=h;
+        }
+        function scheduleParam(field, value){
+            const b=getBudget();
+            b.params[field] = value===''?(field==='face'?1:null):value;
+            generateScheduleTable();
+            if(!document.getElementById('quantityWorkspace').classList.contains('hidden')) generateQuantityTable();
+            if(!document.getElementById('budgetWorkspace').classList.contains('hidden')) refreshBudgetComputed();
+            scheduleAutoSave();
+        }
+
+        // ---------- 匯出 ----------
+        function exportBudgetReport(){ const t=document.querySelector('#budgetTable'); if(!t){showMessage('無資料',true);return;} const n=(projects.find(p=>p.id===activeProjectId)||{}).name||'報表'; exportToExcel(t, n+'_附錄2預算詳細表'); showMessage('已匯出附錄2 (Excel)'); }
+        function exportQuantityReport(){ const t=document.querySelector('#quantityTable'); if(!t){showMessage('無資料',true);return;} const n=(projects.find(p=>p.id===activeProjectId)||{}).name||'報表'; exportToExcel(t, n+'_附錄3數量計算表'); showMessage('已匯出附錄3 (Excel)'); }
+        function exportScheduleReport(){ const t=document.querySelector('#scheduleTable'); if(!t){showMessage('無資料',true);return;} const n=(projects.find(p=>p.id===activeProjectId)||{}).name||'報表'; exportToExcel(t, n+'_工期計算'); showMessage('已匯出工期計算 (Excel)'); }
+
+
         function showRepairSummaryView() {
             hideAllViews();
             document.getElementById('repairSummaryHeader').classList.remove('hidden');
