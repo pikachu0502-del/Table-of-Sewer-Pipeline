@@ -774,6 +774,22 @@
         document.addEventListener('input', function(e){
             if (e.target && e.target.classList && e.target.classList.contains('cell-wrap')) autoGrowCell(e.target);
         });
+        // 異常起點／終點變動時，若該筆屬於以「管節數」評估的分類（6~10），即時重算單一權重
+        document.addEventListener('change', function(e){
+            const el = e.target;
+            if (!el || !el.matches) return;
+            if (el.matches('input[placeholder="起點"], input[placeholder="終點"]')) {
+                const row = el.closest('tr.anomaly-row');
+                if (row && row.querySelector('.single-weight-input')) calculateSingleWeight(row);
+            }
+            // 管材變更：重算該段所有以管節評估（6~10）的列
+            if (el.tagName === 'SELECT' && el.closest('td.core-shared-td')) {
+                const tbody = el.closest('tbody.segment-group');
+                if (tbody) tbody.querySelectorAll('tr.anomaly-row').forEach(r => {
+                    if (r.querySelector('.single-weight-input')) calculateSingleWeight(r);
+                });
+            }
+        });
         // 將核心共用欄（工程標別/上游/下游/起始/路名等文字欄）的 input 就地換成可自動換行的 textarea
         function wrapCoreCells(root) {
             (root || document).querySelectorAll('td.core-shared-td input[type="text"], td.start-manhole-td input[type="text"], td.cluster-shared-td input[type="text"]').forEach(inp => {
@@ -2247,20 +2263,62 @@
             });
         }
 
+        // 管節評估：異常分類 6~10 以「管節數」放大單一權重；管節數依管材計算
+        // PVC 類（管節長 3m）：W = INT(終點/3) − INT(起點/3) + 1
+        // RCP（管節長 2.4m）：W = ROUNDUP((終點 − 起點) / 2.4)
+        const NODE_BASED_CATEGORIES = [6, 7, 8, 9, 10];
+        const RCP_LIKE_MATERIALS = ['RCP', 'DIP'];
+
+        function segmentMaterial(row) {
+            const tbody = row.closest('tbody');
+            if (!tbody) return '';
+            const mainRow = tbody.querySelector('tr[data-segment-type="new"]') || tbody.querySelector('tr.anomaly-row');
+            if (!mainRow) return '';
+            const sel = mainRow.querySelector(':scope > td.core-shared-td select');
+            return sel ? sel.value : '';
+        }
+
+        function pipeNodeCount(row) {
+            const startEl = row.querySelector('input[placeholder="起點"]');
+            const endEl = row.querySelector('input[placeholder="終點"]');
+            const s = parseFloat(startEl ? startEl.value : '');
+            const e = parseFloat(endEl ? endEl.value : '');
+            if (isNaN(s) || isNaN(e) || e < s) return 1;
+            const material = (segmentMaterial(row) || '').toUpperCase();
+            let nodes;
+            if (RCP_LIKE_MATERIALS.indexOf(material) !== -1) {
+                nodes = Math.ceil((e - s) / 2.4);      // RCP：管節長 2.4m，無條件進位
+            } else {
+                nodes = Math.floor(e / 3) - Math.floor(s / 3) + 1; // PVC 類：管節長 3m
+            }
+            return Math.max(nodes, 1);
+        }
+
         function calculateSingleWeight(row) {
             const weightInput = row.querySelector('.weight-input');
             const scoreInput = row.querySelector('.score-input');
             const singleWeightInput = row.querySelector('.single-weight-input');
+            const categoryInput = row.querySelector('.category-input');
 
             const weight = parseFloat(weightInput.value);
             const score = parseFloat(scoreInput.value);
+            const category = parseInt(categoryInput ? categoryInput.value : '', 10);
 
             if (!isNaN(weight) && !isNaN(score)) {
-                singleWeightInput.value = Math.round(weight * score).toString();
+                const base = weight * score;
+                if (NODE_BASED_CATEGORIES.indexOf(category) !== -1) {
+                    const nodes = pipeNodeCount(row);
+                    singleWeightInput.value = Math.round(base * nodes).toString();
+                    singleWeightInput.title = '基礎分數 ' + base + ' × 管節數 ' + nodes + '（依管材 ' + (segmentMaterial(row) || '?') + ' 計算）';
+                } else {
+                    singleWeightInput.value = Math.round(base).toString();
+                    singleWeightInput.title = '';
+                }
             } else {
                 singleWeightInput.value = '';
+                singleWeightInput.title = '';
             }
-            
+
             calculateGroupMetrics(row.dataset.groupId);
         }
 
