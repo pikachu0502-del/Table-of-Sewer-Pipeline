@@ -178,6 +178,7 @@
                     <div class="flex gap-1.5">
                         <button onclick="addSubRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 同管段異常</button>
                         <button onclick="addSubRowDifferentStart()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 不同起始人孔</button>
+                        <button onclick="openClusterAssign()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 分配起始人孔</button>
                         <button onclick="addSegmentRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 管段</button>
                         <button onclick="triggerImportXlsm()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↑ 匯入 xlsm</button>
                         <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
@@ -456,6 +457,24 @@
             <div class="px-6 py-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
                 <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-lg">取消</button>
                 <button id="importConfirmBtn" onclick="confirmImport()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg">確認匯入</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clusterAssignModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden p-6">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[88vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold text-gray-800">分配起始人孔（順走／逆走）</h2>
+                <button onclick="closeClusterAssign()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="px-6 py-3 text-sm bg-gray-50 border-b shrink-0 leading-relaxed text-gray-600">
+                為此管段的每筆異常選擇所屬的起始人孔。可先在上方新增／命名起始人孔（例如 A 順走、B 逆走），再逐筆分配。套用後同一起始人孔的列會自動相鄰合併。
+            </div>
+            <div id="clusterAssignClusters" class="px-6 py-3 border-b shrink-0 space-y-2"></div>
+            <div id="clusterAssignBody" class="flex-1 overflow-auto px-6 py-4"></div>
+            <div class="px-6 py-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
+                <button onclick="closeClusterAssign()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-lg">取消</button>
+                <button onclick="applyClusterAssign()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg">套用分配</button>
             </div>
         </div>
     </div>
@@ -4538,6 +4557,169 @@
             }
             const digits = String(v).replace(/[^\d]/g,'');
             return digits.slice(0,8);
+        }
+
+        // ===== 分配起始人孔（順走／逆走）=====
+        let clusterAssignState = null;
+
+        function resolveActiveSegment() {
+            const panel = document.querySelector('#panel-' + activeProjectId);
+            if (!panel) return null;
+            const table = panel.querySelector('table');
+            if (!table) return null;
+            let tbody = null;
+            if (lastActiveGroupId) tbody = table.querySelector('tbody[data-group-id="' + lastActiveGroupId + '"]');
+            if (!tbody) {
+                const all = table.querySelectorAll('tbody.segment-group');
+                tbody = all[all.length - 1];
+            }
+            return tbody || null;
+        }
+
+        function clusterManholeValue(tbody, cid) {
+            const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
+            for (const r of rows) {
+                if ((r.dataset.startClusterId || tbody.dataset.groupId) !== cid) continue;
+                const st = r.querySelector(':scope > td.start-manhole-td');
+                if (st) { const inp = st.querySelector('input, textarea'); return inp ? inp.value : ''; }
+            }
+            return '';
+        }
+
+        function openClusterAssign() {
+            if (!activeProjectId) { showMessage('請先選擇專案', true); return; }
+            const tbody = resolveActiveSegment();
+            if (!tbody) { showMessage('請先點選要分配的管段（點一下該段任一列）', true); return; }
+            migrateLegacyGroup(tbody);
+            rebuildGroupRowspans(tbody);
+
+            const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
+            // 依出現順序收集現有起始人孔叢集
+            const clusters = [];
+            const seen = {};
+            rows.forEach(r => {
+                const cid = r.dataset.startClusterId || tbody.dataset.groupId;
+                if (!seen[cid]) { seen[cid] = true; clusters.push({ id: cid, manhole: clusterManholeValue(tbody, cid), name: '' }); }
+            });
+            clusters.forEach((c, i) => { c.name = '起始人孔' + String.fromCharCode(65 + i); });
+
+            const rowInfos = rows.map((r, idx) => {
+                const g = (ph) => { const el = r.querySelector('input[placeholder="' + ph + '"]'); return el ? el.value : ''; };
+                const sel = r.querySelector('.anomaly-desc-select');
+                return {
+                    row: r,
+                    cid: r.dataset.startClusterId || tbody.dataset.groupId,
+                    no: idx + 1,
+                    start: g('起點'), end: g('終點'), dir: g('方位'),
+                    type: sel ? sel.value : ''
+                };
+            });
+
+            clusterAssignState = { tbody: tbody, clusters: clusters, rowInfos: rowInfos };
+            renderClusterAssign();
+            document.getElementById('clusterAssignModal').classList.remove('hidden');
+        }
+
+        function renderClusterAssign() {
+            const st = clusterAssignState;
+            // 起始人孔清單編輯
+            let ch = '';
+            st.clusters.forEach((c, i) => {
+                ch += '<div class="flex items-center gap-2">'
+                    + '<span class="text-xs font-semibold text-slate-500 w-6">' + String.fromCharCode(65 + i) + '</span>'
+                    + '<input value="' + (c.name || '').replace(/"/g, '&quot;') + '" oninput="clusterAssignRename(' + i + ', this.value)" class="border rounded px-2 py-1 text-sm w-40" placeholder="名稱（如 順走）">'
+                    + '<input value="' + (c.manhole || '').replace(/"/g, '&quot;') + '" oninput="clusterAssignManhole(' + i + ', this.value)" class="border rounded px-2 py-1 text-sm w-40" placeholder="起始人孔編號">'
+                    + (st.clusters.length > 1 ? '<button onclick="clusterAssignRemove(' + i + ')" class="text-red-500 hover:text-red-700 text-sm px-2">刪除</button>' : '')
+                    + '</div>';
+            });
+            ch += '<button onclick="clusterAssignAdd()" class="mt-1 text-sm text-blue-600 hover:text-blue-800 font-medium">＋ 新增起始人孔</button>';
+            document.getElementById('clusterAssignClusters').innerHTML = ch;
+
+            // 每筆異常分配
+            const opts = st.clusters.map((c, i) => ({ id: c.id, label: (c.name || ('起始人孔' + (i + 1))) + (c.manhole ? '（' + c.manhole + '）' : '') }));
+            const th = (t) => '<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0">' + t + '</th>';
+            let h = '<table class="border-collapse text-sm w-full"><thead><tr>'
+                + th('#') + th('異常起點') + th('異常終點') + th('方位') + th('分類') + th('分配到起始人孔') + '</tr></thead><tbody>';
+            st.rowInfos.forEach((ri, idx) => {
+                const sel = '<select onchange="clusterAssignPick(' + idx + ', this.value)" class="border rounded px-2 py-1 text-sm">'
+                    + opts.map(o => '<option value="' + o.id + '"' + (o.id === ri.cid ? ' selected' : '') + '>' + o.label + '</option>').join('')
+                    + '</select>';
+                h += '<tr>'
+                    + '<td class="border border-gray-300 px-2 py-1 text-center">' + ri.no + '</td>'
+                    + '<td class="border border-gray-300 px-2 py-1">' + (ri.start || '') + '</td>'
+                    + '<td class="border border-gray-300 px-2 py-1">' + (ri.end || '') + '</td>'
+                    + '<td class="border border-gray-300 px-2 py-1">' + (ri.dir || '') + '</td>'
+                    + '<td class="border border-gray-300 px-2 py-1">' + (ri.type || '') + '</td>'
+                    + '<td class="border border-gray-300 px-2 py-1">' + sel + '</td>'
+                    + '</tr>';
+            });
+            h += '</tbody></table>';
+            document.getElementById('clusterAssignBody').innerHTML = h;
+        }
+
+        function clusterAssignRename(i, v) { clusterAssignState.clusters[i].name = v; }
+        function clusterAssignManhole(i, v) { clusterAssignState.clusters[i].manhole = v; }
+        function clusterAssignPick(idx, cid) { clusterAssignState.rowInfos[idx].cid = cid; }
+        function clusterAssignAdd() {
+            const c = { id: generateId(), manhole: '', name: '起始人孔' + String.fromCharCode(65 + clusterAssignState.clusters.length) };
+            clusterAssignState.clusters.push(c);
+            renderClusterAssign();
+        }
+        function clusterAssignRemove(i) {
+            const st = clusterAssignState;
+            if (st.clusters.length <= 1) return;
+            const removed = st.clusters[i].id;
+            const fallback = st.clusters.find((c, k) => k !== i).id;
+            st.clusters.splice(i, 1);
+            st.rowInfos.forEach(ri => { if (ri.cid === removed) ri.cid = fallback; });
+            renderClusterAssign();
+        }
+        function closeClusterAssign() {
+            document.getElementById('clusterAssignModal').classList.add('hidden');
+            clusterAssignState = null;
+        }
+        function applyClusterAssign() {
+            const st = clusterAssignState;
+            if (!st) return;
+            const tbody = st.tbody;
+            // 依「叢集首次出現順序」重新排列，讓同一起始人孔的列相鄰
+            const order = [];
+            const seen = {};
+            st.clusters.forEach(c => { seen[c.id] = []; });
+            st.rowInfos.forEach(ri => {
+                if (!seen[ri.cid]) seen[ri.cid] = [];
+                seen[ri.cid].push(ri.row);
+                ri.row.dataset.startClusterId = ri.cid;
+            });
+            st.clusters.forEach(c => { (seen[c.id] || []).forEach(r => order.push(r)); });
+            // 保險：任何未列入的列附加在最後
+            st.rowInfos.forEach(ri => { if (order.indexOf(ri.row) === -1) order.push(ri.row); });
+            order.forEach(r => tbody.appendChild(r));
+
+            rebuildGroupRowspans(tbody);
+
+            // 依 modal 設定回填每個叢集的起始人孔編號
+            const manholeById = {};
+            st.clusters.forEach(c => { manholeById[c.id] = c.manhole || ''; });
+            const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
+            const done = {};
+            rows.forEach(r => {
+                const cid = r.dataset.startClusterId || tbody.dataset.groupId;
+                if (done[cid]) return;
+                const st2 = r.querySelector(':scope > td.start-manhole-td');
+                if (st2 && manholeById[cid] !== undefined) {
+                    const inp = st2.querySelector('input, textarea');
+                    if (inp && manholeById[cid] !== '') { inp.value = manholeById[cid]; }
+                    done[cid] = true;
+                }
+            });
+
+            calculateGroupMetrics(tbody.dataset.groupId);
+            wrapCoreCells(tbody);
+            autoGrowCells(tbody.querySelectorAll('textarea.cell-wrap'));
+            scheduleAutoSave();
+            closeClusterAssign();
+            showMessage('已完成起始人孔分配');
         }
 
         function triggerImportXlsm(){
