@@ -73,9 +73,9 @@
         }
         
         .col-id { width: 50px; }
-        .col-project { min-width: 150px; }
-        .col-node { min-width: 140px; }
-        .col-date { min-width: 170px; }
+        .col-project { min-width: 108px; }
+        .col-node { min-width: 88px; }
+        .col-date { min-width: 108px; }
         .col-desc { min-width: 220px; }
         .col-small { min-width: 60px; }
 
@@ -95,6 +95,9 @@
         body.ui-locked input, body.ui-locked select, body.ui-locked textarea { pointer-events: none !important; background-color: #f1f5f9 !important; cursor: not-allowed; }
         body.ui-locked .segment-drag-handle, body.ui-locked .anomaly-drag-handle, body.ui-locked .btn-upload, body.ui-locked .btn-remove, body.ui-locked .project-drag-handle { pointer-events: none !important; opacity: .45; }
         body.ui-locked button[onclick^="addSubRow"], body.ui-locked button[onclick^="addSegmentRow"], body.ui-locked button[onclick^="addSubRowDifferentStart"], body.ui-locked button[onclick^="triggerImportXlsm"], body.ui-locked button[onclick^="deleteRow"], body.ui-locked button[onclick^="createNewProject"], body.ui-locked button[onclick^="sortByProject"], body.ui-locked button[onclick^="budgetAdd"], body.ui-locked button[onclick^="budgetDelete"] { pointer-events: none !important; opacity: .4; }
+
+        textarea.cell-wrap { width: 100%; border: 0; background: transparent; outline: none; resize: none; overflow: hidden; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; text-align: center; font: inherit; padding: 4px; line-height: 1.3; display: block; min-height: 1.9em; }
+        textarea.cell-wrap:focus { background: #eff6ff; }
     </style>
 </head>
 <body class="flex h-screen w-full">
@@ -682,6 +685,7 @@
                     const table = div.querySelector('table');
                     if (table) {
                         ensureProjectSortButton(table);
+                        wrapCoreCells(div);
                         new Sortable(table, {
                             draggable: 'tbody.segment-group',
                             handle: '.segment-drag-handle',
@@ -713,6 +717,31 @@
 
             // 載入完成後依儲存狀態套用鎖定
             applyLockState();
+        }
+
+        function autoGrowCell(el) {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+        }
+        document.addEventListener('input', function(e){
+            if (e.target && e.target.classList && e.target.classList.contains('cell-wrap')) autoGrowCell(e.target);
+        });
+        // 將核心共用欄（工程標別/上游/下游/起始/路名等文字欄）的 input 就地換成可自動換行的 textarea
+        function wrapCoreCells(root) {
+            (root || document).querySelectorAll('td.core-shared-td input[type="text"], td.start-manhole-td input[type="text"]').forEach(inp => {
+                if (inp.placeholder === 'YYYYMMDD') return;
+                if (inp.dataset.wrapped) return;
+                const ta = document.createElement('textarea');
+                ta.value = inp.value;
+                ta.placeholder = inp.placeholder || '';
+                ta.rows = 1;
+                ta.dataset.wrapped = '1';
+                ta.className = (inp.className || '') + ' cell-wrap';
+                const oc = inp.getAttribute('onchange'); if (oc) ta.setAttribute('onchange', oc);
+                const oi = inp.getAttribute('oninput'); if (oi) ta.setAttribute('oninput', oi);
+                inp.parentNode.replaceChild(ta, inp);
+                autoGrowCell(ta);
+            });
         }
 
         function applyLockState() {
@@ -1042,7 +1071,7 @@
         function removePhoto(btn) {
             const container = btn.closest('div');
             const img = container.querySelector('img');
-            const input = container.querySelector('input');
+            const input = container.querySelector('input, textarea');
             const uploadBtn = container.querySelector('.btn-upload');
             
             if(img && input && uploadBtn) {
@@ -1754,7 +1783,7 @@
                 if (panel) {
                     const rows = panel.querySelectorAll('tr[data-segment-type="new"]');
                     rows.forEach(mainRow => {
-                        const inputs = mainRow.querySelectorAll('input, select');
+                        const inputs = mainRow.querySelectorAll('input, select, textarea');
                         const groupId = mainRow.dataset.groupId;
                         const totalSegmentLength = segmentTotalLengths[project.id]?.[groupId] || 0;
                         const diameter = parseFloat(inputs[8]?.value) || 0;
@@ -1897,7 +1926,10 @@
             if(activeLi) activeLi.classList.add('active');
 
             document.querySelectorAll('.project-panel').forEach(panel => panel.classList.add('hidden'));
-            document.getElementById(`panel-${id}`).classList.remove('hidden');
+            const panel = document.getElementById(`panel-${id}`);
+            panel.classList.remove('hidden');
+            // 面板由隱藏轉為顯示後，重新計算可換行欄位高度（隱藏時 scrollHeight 為 0）
+            panel.querySelectorAll('textarea.cell-wrap').forEach(autoGrowCell);
 
             returnToDataEntry();
         }
@@ -2013,7 +2045,7 @@
                 const o = { label:'', up:'', down:'' };
                 if(!main) return o;
                 main.querySelectorAll(':scope > td.core-shared-td').forEach(td=>{
-                    const t = classifyCoreCell(td); const el = td.querySelector('input');
+                    const t = classifyCoreCell(td); const el = td.querySelector('input, textarea');
                     if(!el) return;
                     if(t==='field') o.label=(el.value||'').trim();
                     else if(t==='up') o.up=(el.value||'').trim();
@@ -2209,7 +2241,7 @@
                 const opts = Array.from(select.options).map(o => o.value);
                 if (opts.includes('RCP')) return 'material';
             }
-            const input = cell.querySelector('input');
+            const input = cell.querySelector('input, textarea');
             if (input) {
                 const ph = input.getAttribute('placeholder') || '';
                 if (ph === '請輸入') return 'field';
@@ -2335,7 +2367,7 @@
             rows.forEach(r => {
                 const td = r.querySelector(':scope > td.start-manhole-td');
                 if (td) {
-                    const input = td.querySelector('input');
+                    const input = td.querySelector('input, textarea');
                     valueByRow.set(r, input ? input.value : '');
                 }
             });
@@ -2487,6 +2519,7 @@
             
             newTbody.appendChild(newRow);
             table.appendChild(newTbody);
+            wrapCoreCells(newTbody);
 
             new Sortable(newTbody, {
                 group: groupId,
@@ -2785,7 +2818,7 @@
             let index = 1;
             rows.forEach(mainRow => {
                 const rowNum = mainRow.querySelector('.row-number')?.textContent || index;
-                const inputs = mainRow.querySelectorAll('input, select');
+                const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const upstream = inputs[1]?.value || '?';
                 const downstream = inputs[2]?.value || '?';
                 const groupId = mainRow.dataset.groupId;
@@ -2851,7 +2884,7 @@
             if (!mainRow) return;
 
             const rowNum = mainRow.querySelector('.row-number')?.textContent || '';
-            const inputs = mainRow.querySelectorAll('input, select');
+            const inputs = mainRow.querySelectorAll('input, select, textarea');
             const projectName = inputs[0]?.value || '';
             const upstream = inputs[1]?.value || '';
             const downstream = inputs[2]?.value || '';
@@ -3672,7 +3705,7 @@
             if (panel) {
                 const mainRow = panel.querySelector(`tr[data-segment-type="new"][data-group-id="${groupId}"]`);
                 if (mainRow) {
-                    const inputs = mainRow.querySelectorAll('input, select');
+                    const inputs = mainRow.querySelectorAll('input, select, textarea');
                     if (inputs[inputIndex]) {
                         if (inputIndex === 7) {
                             inputs[inputIndex].value = parseFloat(val) ? parseFloat(val).toFixed(2) : '';
@@ -3712,7 +3745,7 @@
             if (!panel) return;
 
             const rows = panel.querySelectorAll('tr[data-segment-type="new"]');
-            const uniqueProjects = Array.from(new Set(Array.from(rows).map(r => r.querySelectorAll('input, select')[0]?.value.trim() || '未命名標別')));
+            const uniqueProjects = Array.from(new Set(Array.from(rows).map(r => r.querySelectorAll('input, select, textarea')[0]?.value.trim() || '未命名標別')));
 
             let html = `
                 <div class="max-w-[100%] mx-auto pb-8 overflow-x-auto">
@@ -3736,7 +3769,7 @@
 
             rows.forEach((mainRow) => {
                 const rowNum = mainRow.querySelector('.row-number')?.textContent || '';
-                const inputs = mainRow.querySelectorAll('input, select');
+                const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const projectLabel = inputs[0]?.value.trim() || '未命名標別';
                 const upstream = inputs[1]?.value || '';
                 const downstream = inputs[2]?.value || '';
@@ -3854,7 +3887,7 @@
             if (!panel) return;
             const rows = Array.from(panel.querySelectorAll('tr[data-segment-type="new"]'));
             const jobs = rows.map(r => {
-                const inputs = r.querySelectorAll('input, select');
+                const inputs = r.querySelectorAll('input, select, textarea');
                 return { groupId: r.dataset.groupId, up: (inputs[1]?.value || '').trim(), down: (inputs[2]?.value || '').trim() };
             }).filter(j => j.up && j.down);
 
@@ -3892,7 +3925,7 @@
 
             const rows = panel.querySelectorAll('tr[data-segment-type="new"]');
             rows.forEach(mainRow => {
-                const inputs = mainRow.querySelectorAll('input, select');
+                const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const projectLabel = inputs[0]?.value.trim() || '未命名標別';
                 const groupId = mainRow.dataset.groupId;
                 const totalSegmentLength = segmentTotalLengths[activeProjectId]?.[groupId] || 0;
@@ -3978,7 +4011,7 @@
             const rows = panel.querySelectorAll('tr[data-segment-type="new"]');
             
             rows.forEach(mainRow => {
-                const inputs = mainRow.querySelectorAll('input, select');
+                const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const projectLabel = inputs[0]?.value || '未命名標別';
                 const segmentLength = parseFloat(inputs[7]?.value) || 0;
                 const diameter = parseFloat(inputs[8]?.value) || 0;
@@ -4109,7 +4142,7 @@
             const rows = panel.querySelectorAll('tr[data-segment-type="new"]');
             
             rows.forEach(mainRow => {
-                const inputs = mainRow.querySelectorAll('input, select');
+                const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const projectLabel = inputs[0]?.value || '未命名標別';
                 const segmentLength = parseFloat(inputs[7]?.value) || 0;
                 const diameter = parseFloat(inputs[8]?.value) || 0;
@@ -4732,16 +4765,16 @@
                     const core = mainRow.querySelectorAll(':scope > td.core-shared-td');
                     // core: [0]drag [1]rownum [2]管段編號 [3]up [4]down [5]date [6]order [7]road [8]length [9]diameter [10]material
                     const seg = s.seg;
-                    if(core[2]) setCoreVal(core[2].querySelector('input'), importParsed.projectLabel || '');
-                    if(core[3]) setCoreVal(core[3].querySelector('input'), seg.up);
-                    if(core[4]) setCoreVal(core[4].querySelector('input'), seg.down);
+                    if(core[2]) setCoreVal(core[2].querySelector('input, textarea'), importParsed.projectLabel || '');
+                    if(core[3]) setCoreVal(core[3].querySelector('input, textarea'), seg.up);
+                    if(core[4]) setCoreVal(core[4].querySelector('input, textarea'), seg.down);
                     const startInput = mainRow.querySelector('.start-manhole-td input');
                     setCoreVal(startInput, seg.start);
-                    if(core[5]) setCoreVal(core[5].querySelector('input'), seg.date);
-                    if(core[6] && seg.order!=='') setCoreVal(core[6].querySelector('input'), seg.order);
-                    if(core[7]) setCoreVal(core[7].querySelector('input'), seg.road);
-                    if(core[8] && seg.length!=='') setCoreVal(core[8].querySelector('input'), seg.length);
-                    if(core[9] && seg.diameter!=='') setCoreVal(core[9].querySelector('input'), seg.diameter);
+                    if(core[5]) setCoreVal(core[5].querySelector('input, textarea'), seg.date);
+                    if(core[6] && seg.order!=='') setCoreVal(core[6].querySelector('input, textarea'), seg.order);
+                    if(core[7]) setCoreVal(core[7].querySelector('input, textarea'), seg.road);
+                    if(core[8] && seg.length!=='') setCoreVal(core[8].querySelector('input, textarea'), seg.length);
+                    if(core[9] && seg.diameter!=='') setCoreVal(core[9].querySelector('input, textarea'), seg.diameter);
                     if(core[10]) setCoreVal(core[10].querySelector('select'), seg.material);
 
                     const list = s.anomalies.length ? s.anomalies : [{aStart:'',aEnd:'',dir:'',type:null,score:''}];
