@@ -608,12 +608,14 @@
         }
 
         function serializeAppData() {
-            document.querySelectorAll('.project-panel input, .project-panel select, .project-panel img').forEach(el => {
+            document.querySelectorAll('.project-panel input, .project-panel select, .project-panel textarea, .project-panel img').forEach(el => {
                 if (el.tagName === 'SELECT') {
                     Array.from(el.options).forEach(opt => {
                         if (opt.value === el.value) opt.setAttribute('selected', 'selected');
                         else opt.removeAttribute('selected');
                     });
+                } else if (el.tagName === 'TEXTAREA') {
+                    el.textContent = el.value; // textarea 的值需寫回內容才會保存在 innerHTML
                 } else if (el.tagName === 'IMG') {
                     if (el.src && el.src.startsWith('data:')) {
                         el.setAttribute('src', el.src);
