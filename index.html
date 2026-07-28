@@ -686,6 +686,7 @@
                     const table = div.querySelector('table');
                     if (table) {
                         ensureProjectSortButton(table);
+                        migrateClusterFields(table);
                         wrapCoreCells(div);
                         new Sortable(table, {
                             draggable: 'tbody.segment-group',
@@ -725,7 +726,7 @@
             let w = el.offsetWidth || (el.parentNode && el.parentNode.offsetWidth) || 0;
             if (!w) { // 隱藏時取不到寬度，依欄位類別給預設寬
                 const td = el.closest('td');
-                if (td && td.classList.contains('start-manhole-td')) w = 88;
+                if (td && (td.classList.contains('start-manhole-td') || td.classList.contains('cluster-shared-td'))) w = 88;
                 else w = 104;
             }
             const usable = Math.max(w - 10, 20);
@@ -756,7 +757,7 @@
         });
         // 將核心共用欄（工程標別/上游/下游/起始/路名等文字欄）的 input 就地換成可自動換行的 textarea
         function wrapCoreCells(root) {
-            (root || document).querySelectorAll('td.core-shared-td input[type="text"], td.start-manhole-td input[type="text"]').forEach(inp => {
+            (root || document).querySelectorAll('td.core-shared-td input[type="text"], td.start-manhole-td input[type="text"], td.cluster-shared-td input[type="text"]').forEach(inp => {
                 if (inp.placeholder === 'YYYYMMDD') return;
                 if (inp.dataset.wrapped) return;
                 const ta = document.createElement('textarea');
@@ -2290,7 +2291,7 @@
         }
 
         const CORE_BEFORE_START_TYPES = ['drag', 'rownum', 'field', 'up', 'down'];
-        const CORE_AFTER_START_TYPES = ['date', 'count', 'road', 'length', 'diameter', 'material'];
+        const CORE_AFTER_START_TYPES = ['diameter', 'material'];
 
         // 修復主列共用欄位的順序、class 與 rowSpan：掃描整列所有 <td>（不依賴現有標記）依內容辨識，
         // 若能完整辨識全部 11 個核心欄位就重新排列、補上 class、並修正 rowSpan；辨識不完整（例如子列）則完全不動
@@ -2352,6 +2353,14 @@
             cells.forEach((cell, idx) => {
                 if (idx === 5) {
                     cell.classList.add('start-manhole-td');
+                } else if (idx === 6) {
+                    cell.classList.add('cluster-shared-td'); cell.dataset.cfield = 'date';
+                } else if (idx === 7) {
+                    cell.classList.add('cluster-shared-td'); cell.dataset.cfield = 'order';
+                } else if (idx === 8) {
+                    cell.classList.add('cluster-shared-td'); cell.dataset.cfield = 'road';
+                } else if (idx === 9) {
+                    cell.classList.add('cluster-shared-td'); cell.dataset.cfield = 'length';
                 } else if (idx < 12) {
                     cell.classList.add('core-shared-td');
                 }
@@ -2374,10 +2383,13 @@
                 const before = coreCells.slice(0, 5);
                 const after = coreCells.slice(5);
                 before.forEach(c => row.insertBefore(c, startTd));
-                // 锚點不能是即將被移動的欄位本身（否則順序會被倒置），跳過它們找到真正穩定的後續項目
+                // cluster 區塊 = 起始人孔格 + 其後連續的 cluster-shared-td（檢視日期/次第/路名/檢視長度）
+                let last = startTd;
+                let n = startTd.nextElementSibling;
+                while (n && n.classList.contains('cluster-shared-td')) { last = n; n = n.nextElementSibling; }
                 const afterSet = new Set(after);
-                let anchor = startTd.nextSibling;
-                while (anchor && afterSet.has(anchor)) anchor = anchor.nextSibling;
+                let anchor = last.nextElementSibling;
+                while (anchor && afterSet.has(anchor)) anchor = anchor.nextElementSibling;
                 after.forEach(c => row.insertBefore(c, anchor));
             } else {
                 const cellSet = new Set(coreCells);
@@ -2387,25 +2399,94 @@
             }
         }
 
-        // 依每列的 startClusterId，把「起始人孔」欄重建為多個連續叢集各自合併（預設全部同一叢集＝維持原本整段合併）
+        // 建立「起始人孔」格
+        function makeStartTd(value, span) {
+            const td = document.createElement('td');
+            td.className = 'start-manhole-td';
+            td.rowSpan = span;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = '起始';
+            input.value = value == null ? '' : value;
+            td.appendChild(input);
+            return td;
+        }
+        // 建立叢集共用欄（檢視日期/檢視次第/路名/檢視長度），依起始人孔叢集各自合併
+        function makeClusterFieldTd(field, value, span) {
+            const td = document.createElement('td');
+            td.className = 'cluster-shared-td';
+            td.dataset.cfield = field;
+            td.rowSpan = span;
+            const input = document.createElement('input');
+            if (field === 'date') {
+                input.type = 'text'; input.placeholder = 'YYYYMMDD'; input.maxLength = 8;
+                input.setAttribute('oninput', "this.value=this.value.replace(/[^\\d]/g,'')");
+            } else if (field === 'order') {
+                input.type = 'number';
+            } else if (field === 'road') {
+                input.type = 'text'; input.placeholder = '路名';
+            } else if (field === 'length') {
+                input.type = 'number'; input.step = '0.01';
+                input.setAttribute('onchange', "if(this.value !== '') this.value = parseFloat(this.value).toFixed(2);");
+            }
+            if (field === 'order') input.value = (value == null || value === '') ? '1' : value;
+            else input.value = value == null ? '' : value;
+            td.appendChild(input);
+            return td;
+        }
+
+        const CLUSTER_FIELDS = ['date', 'order', 'road', 'length'];
+
+        // 舊資料相容：把原本屬於整段共用（core-shared-td）的 檢視日期/次第/路名/檢視長度
+        // 轉為叢集共用（cluster-shared-td），使其可依起始人孔叢集各自填寫
+        function migrateClusterFields(table) {
+            table.querySelectorAll('tbody.segment-group').forEach(tbody => {
+                const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
+                if (!mainRow) return;
+                if (mainRow.querySelector(':scope > td.cluster-shared-td')) return; // 已是新結構
+                let converted = false;
+                mainRow.querySelectorAll(':scope > td.core-shared-td').forEach(td => {
+                    const t = classifyCoreCell(td);
+                    let f = null;
+                    if (t === 'date') f = 'date';
+                    else if (t === 'count') f = 'order';
+                    else if (t === 'road') f = 'road';
+                    else if (t === 'length') f = 'length';
+                    if (f) {
+                        td.classList.remove('core-shared-td');
+                        td.classList.add('cluster-shared-td');
+                        td.dataset.cfield = f;
+                        converted = true;
+                    }
+                });
+                if (converted) rebuildGroupRowspans(tbody);
+            });
+        }
+
+        // 依每列的 startClusterId，把「起始人孔＋檢視日期/次第/路名/檢視長度」重建為多個連續叢集各自合併
+        // （預設全部同一叢集＝維持原本整段合併；新增不同起始人孔後即形成新叢集，可各自填寫這些屬性）
         function rebuildStartClusters(tbody) {
             const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
             if (rows.length === 0) return;
 
-            // 先讀出現有各列（若持有格子）的值，避免重建時遺失
-            const valueByRow = new Map();
+            // 先讀出每列現有值（起始人孔 + 各叢集共用欄），避免重建時遺失
+            const valByRow = new Map();
             rows.forEach(r => {
-                const td = r.querySelector(':scope > td.start-manhole-td');
-                if (td) {
-                    const input = td.querySelector('input, textarea');
-                    valueByRow.set(r, input ? input.value : '');
-                }
+                const o = {};
+                const st = r.querySelector(':scope > td.start-manhole-td');
+                if (st) { const inp = st.querySelector('input, textarea'); o.start = inp ? inp.value : ''; }
+                r.querySelectorAll(':scope > td.cluster-shared-td').forEach(td => {
+                    const f = td.dataset.cfield; const inp = td.querySelector('input, textarea');
+                    if (f) o[f] = inp ? inp.value : '';
+                });
+                valByRow.set(r, o);
             });
 
-            // 移除所有現有的起始人孔格，之後依叢集重建
+            // 移除所有現有的起始人孔格與叢集共用欄，之後依叢集重建
             rows.forEach(r => {
-                const td = r.querySelector(':scope > td.start-manhole-td');
-                if (td) td.remove();
+                const st = r.querySelector(':scope > td.start-manhole-td');
+                if (st) st.remove();
+                r.querySelectorAll(':scope > td.cluster-shared-td').forEach(td => td.remove());
             });
 
             let i = 0;
@@ -2414,21 +2495,22 @@
                 let j = i;
                 while (j + 1 < rows.length && (rows[j + 1].dataset.startClusterId || rows[j + 1].dataset.groupId) === cid) j++;
 
-                let value = '';
-                for (let k = i; k <= j; k++) {
-                    if (valueByRow.has(rows[k])) { value = valueByRow.get(rows[k]); break; }
-                }
+                // 各欄取該叢集第一個有值的列（欄位彼此獨立）
+                const pick = (field) => {
+                    for (let k = i; k <= j; k++) { const o = valByRow.get(rows[k]); if (o && o[field] !== undefined && o[field] !== '') return o[field]; }
+                    for (let k = i; k <= j; k++) { const o = valByRow.get(rows[k]); if (o && o[field] !== undefined) return o[field]; }
+                    return '';
+                };
 
                 const headRow = rows[i];
-                const td = document.createElement('td');
-                td.className = 'start-manhole-td';
-                td.rowSpan = j - i + 1;
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = '起始';
-                input.value = value;
-                td.appendChild(input);
-                headRow.insertBefore(td, headRow.firstElementChild);
+                const span = j - i + 1;
+                const ref = headRow.firstElementChild;
+                // 依序插入到最前面，最終順序為 起始,日期,次第,路名,檢視長度
+                headRow.insertBefore(makeStartTd(pick('start'), span), ref);
+                let anchor = headRow.querySelector(':scope > td.start-manhole-td').nextSibling;
+                CLUSTER_FIELDS.forEach(f => {
+                    headRow.insertBefore(makeClusterFieldTd(f, pick(f), span), anchor);
+                });
 
                 i = j + 1;
             }
@@ -2495,10 +2577,10 @@
                 <td class="core-shared-td"><input type="text" placeholder="請輸入"></td>
                 <td class="core-shared-td"><input type="text" placeholder="上游"></td>
                 <td class="core-shared-td"><input type="text" placeholder="下游"></td>
-                <td class="core-shared-td"><input type="text" placeholder="YYYYMMDD" maxlength="8" oninput="this.value=this.value.replace(/[^\\d]/g,'')"></td>
-                <td class="core-shared-td"><input type="number" value="1"></td>
-                <td class="core-shared-td"><input type="text" placeholder="路名"></td>
-                <td class="core-shared-td"><input type="number" step="0.01" onchange="if(this.value !== '') this.value = parseFloat(this.value).toFixed(2);"></td>
+                <td class="cluster-shared-td" data-cfield="date"><input type="text" placeholder="YYYYMMDD" maxlength="8" oninput="this.value=this.value.replace(/[^\\d]/g,'')"></td>
+                <td class="cluster-shared-td" data-cfield="order"><input type="number" value="1"></td>
+                <td class="cluster-shared-td" data-cfield="road"><input type="text" placeholder="路名"></td>
+                <td class="cluster-shared-td" data-cfield="length"><input type="number" step="0.01" onchange="if(this.value !== '') this.value = parseFloat(this.value).toFixed(2);"></td>
                 <td class="core-shared-td"><input type="number" onchange="if(this.value !== '') this.value = Math.round(parseFloat(this.value));"></td>
                 <td class="core-shared-td">
                     <select class="text-center">
@@ -2726,14 +2808,12 @@
                 tbody.remove();
                 updateRowNumbers(table);
             } else {
-                // 若這列目前持有「起始人孔」共用格，先把它搬到同叛集的其他列，避免資料跏著被刪除的列一起不見
-                const startTd = row.querySelector(':scope > td.start-manhole-td');
-                if (startTd) {
-                    const cid = row.dataset.startClusterId;
-                    const sibling = rows.find(r => r !== row && r.dataset.startClusterId === cid);
-                    if (sibling) {
-                        sibling.insertBefore(startTd, sibling.firstElementChild);
-                    }
+                // 若這列目前持有「起始人孔／叢集共用欄」，先把它們搬到同叢集的其他列，避免資料跟著被刪除的列一起不見
+                const cid = row.dataset.startClusterId;
+                const sibling = rows.find(r => r !== row && r.dataset.startClusterId === cid);
+                if (sibling) {
+                    const clusterTds = row.querySelectorAll(':scope > td.start-manhole-td, :scope > td.cluster-shared-td');
+                    clusterTds.forEach(td => sibling.insertBefore(td, sibling.firstElementChild));
                 }
 
                 if (row.dataset.segmentType === 'new') {
@@ -4797,19 +4877,20 @@
                     lastActiveGroupId = groupId;
                     const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
                     const core = mainRow.querySelectorAll(':scope > td.core-shared-td');
-                    // core: [0]drag [1]rownum [2]管段編號 [3]up [4]down [5]date [6]order [7]road [8]length [9]diameter [10]material
+                    // core（不含 date/road/length，改為叢集共用欄）: [0]drag [1]rownum [2]管段編號 [3]up [4]down [5]diameter [6]material
                     const seg = s.seg;
                     if(core[2]) setCoreVal(core[2].querySelector('input, textarea'), importParsed.projectLabel || '');
                     if(core[3]) setCoreVal(core[3].querySelector('input, textarea'), seg.up);
                     if(core[4]) setCoreVal(core[4].querySelector('input, textarea'), seg.down);
-                    const startInput = mainRow.querySelector('.start-manhole-td input');
+                    const startInput = mainRow.querySelector('.start-manhole-td input, .start-manhole-td textarea');
                     setCoreVal(startInput, seg.start);
-                    if(core[5]) setCoreVal(core[5].querySelector('input, textarea'), seg.date);
-                    if(core[6] && seg.order!=='') setCoreVal(core[6].querySelector('input, textarea'), seg.order);
-                    if(core[7]) setCoreVal(core[7].querySelector('input, textarea'), seg.road);
-                    if(core[8] && seg.length!=='') setCoreVal(core[8].querySelector('input, textarea'), seg.length);
-                    if(core[9] && seg.diameter!=='') setCoreVal(core[9].querySelector('input, textarea'), seg.diameter);
-                    if(core[10]) setCoreVal(core[10].querySelector('select'), seg.material);
+                    const cf = (f) => mainRow.querySelector(':scope > td.cluster-shared-td[data-cfield="'+f+'"] input, :scope > td.cluster-shared-td[data-cfield="'+f+'"] textarea');
+                    setCoreVal(cf('date'), seg.date);
+                    if(seg.order!=='') setCoreVal(cf('order'), seg.order);
+                    setCoreVal(cf('road'), seg.road);
+                    if(seg.length!=='') setCoreVal(cf('length'), seg.length);
+                    if(core[5] && seg.diameter!=='') setCoreVal(core[5].querySelector('input, textarea'), seg.diameter);
+                    if(core[6]) setCoreVal(core[6].querySelector('select'), seg.material);
 
                     const list = s.anomalies.length ? s.anomalies : [{aStart:'',aEnd:'',dir:'',type:null,score:''}];
                     fillImportedAnomaly(mainRow, list[0]);
