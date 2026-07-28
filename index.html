@@ -708,6 +708,7 @@
                     if (table) {
                         ensureProjectSortButton(table);
                         migrateClusterFields(table);
+                        ensureMaterialOptions(table);
                         wrapCoreCells(div);
                         new Sortable(table, {
                             draggable: 'tbody.segment-group',
@@ -721,11 +722,12 @@
                         });
                         table.querySelectorAll('tbody.segment-group').forEach(tbody => {
                             new Sortable(tbody, {
-                                group: tbody.dataset.groupId, 
+                                group: 'anomalies',
                                 draggable: 'tr.anomaly-row',
                                 handle: '.anomaly-drag-handle',
                                 animation: 150,
-                                onEnd: function() { rebuildGroupRowspans(tbody); }
+                                onStart: handleAnomalyDragStart,
+                                onEnd: handleAnomalyDragEnd
                             });
                         });
                     }
@@ -2270,6 +2272,7 @@
         // RCP（管節長 2.4m）：W = ROUNDUP((終點 − 起點) / 2.4)
         const NODE_BASED_CATEGORIES = [6, 7, 8, 9, 10];
         const RCP_LIKE_MATERIALS = ['RCP', 'DIP'];
+        const ACP_JOINT_LEN = 2.5; // 石綿管 ACP：管節長 2.5m
 
         function segmentMaterial(row) {
             const tbody = row.closest('tbody');
@@ -2290,6 +2293,8 @@
             let nodes;
             if (RCP_LIKE_MATERIALS.indexOf(material) !== -1) {
                 nodes = Math.ceil((e - s) / 2.4);      // RCP：管節長 2.4m，無條件進位
+            } else if (material === 'ACP') {
+                nodes = Math.ceil((e - s) / ACP_JOINT_LEN); // 石綿管：管節長 2.5m，無條件進位
             } else {
                 nodes = Math.floor(e / 3) - Math.floor(s / 3) + 1; // PVC 類：管節長 3m
             }
@@ -2518,6 +2523,17 @@
 
         // 舊資料相容：把原本屬於整段共用（core-shared-td）的 檢視日期/次第/路名/檢視長度
         // 轉為叢集共用（cluster-shared-td），使其可依起始人孔叢集各自填寫
+        function ensureMaterialOptions(table) {
+            table.querySelectorAll('td.core-shared-td select').forEach(sel => {
+                const opts = Array.from(sel.options).map(o => o.value);
+                if (opts.includes('RCP') && !opts.includes('ACP')) {
+                    const o = document.createElement('option');
+                    o.value = 'ACP'; o.textContent = 'ACP';
+                    sel.appendChild(o);
+                }
+            });
+        }
+
         function migrateClusterFields(table) {
             table.querySelectorAll('tbody.segment-group').forEach(tbody => {
                 const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
@@ -2634,6 +2650,115 @@
             autoGrowCells(tbody.querySelectorAll('textarea.cell-wrap'));
         }
 
+        // ===== 跨管段（跨標別）拖曳異常列 =====
+        let anomalyDragSnapshot = null;
+
+        function _setCellVal(inp, v) {
+            if (!inp) return;
+            v = (v == null) ? '' : v;
+            if (inp.tagName === 'SELECT') { inp.value = v; }
+            else { inp.value = v; if (inp.tagName === 'TEXTAREA') inp.textContent = v; }
+        }
+
+        // 讀取某管段主列的「整段共用」欄位值快照（工程標別/上下游/管徑/管材/日期/次第/路名/檢視長度/起始人孔）
+        function getSharedSnapshot(tbody) {
+            const snap = { label:'', up:'', down:'', diameter:'', material:'', date:'', order:'', road:'', length:'', start:'' };
+            if (!tbody) return snap;
+            const main = tbody.querySelector('tr[data-segment-type="new"]') || tbody.querySelector('tr.anomaly-row');
+            if (!main) return snap;
+            main.querySelectorAll(':scope > td.core-shared-td').forEach(td => {
+                const t = classifyCoreCell(td); const i = td.querySelector('input, textarea, select');
+                if (!i) return;
+                if (t === 'field') snap.label = i.value;
+                else if (t === 'up') snap.up = i.value;
+                else if (t === 'down') snap.down = i.value;
+                else if (t === 'diameter') snap.diameter = i.value;
+                else if (t === 'material') snap.material = i.value;
+            });
+            main.querySelectorAll(':scope > td.cluster-shared-td').forEach(td => {
+                const i = td.querySelector('input, textarea');
+                if (i && td.dataset.cfield) snap[td.dataset.cfield] = i.value;
+            });
+            const st = main.querySelector(':scope > td.start-manhole-td');
+            if (st) { const i = st.querySelector('input, textarea'); if (i) snap.start = i.value; }
+            return snap;
+        }
+
+        // 以某個現有主列為模板，複製一整組共用欄位（設定為快照值）插入到 targetRow，供來源段主列被拖走時重建
+        function buildSharedCellsInto(targetRow, snap, tmplRow) {
+            const action = targetRow.lastElementChild;
+            tmplRow.querySelectorAll(':scope > td.core-shared-td').forEach(td => {
+                const c = td.cloneNode(true);
+                const t = classifyCoreCell(c);
+                const i = c.querySelector('input, textarea, select');
+                if (t === 'field') _setCellVal(i, snap.label);
+                else if (t === 'up') _setCellVal(i, snap.up);
+                else if (t === 'down') _setCellVal(i, snap.down);
+                else if (t === 'diameter') _setCellVal(i, snap.diameter);
+                else if (t === 'material') _setCellVal(i, snap.material);
+                else if (t === 'rownum') c.textContent = '';
+                targetRow.insertBefore(c, action);
+            });
+            const st = tmplRow.querySelector(':scope > td.start-manhole-td');
+            if (st) { const c = st.cloneNode(true); _setCellVal(c.querySelector('input, textarea'), snap.start); targetRow.insertBefore(c, action); }
+            ['date','order','road','length'].forEach(f => {
+                const src = tmplRow.querySelector(':scope > td.cluster-shared-td[data-cfield="'+f+'"]');
+                if (src) { const c = src.cloneNode(true); _setCellVal(c.querySelector('input, textarea'), snap[f]); targetRow.insertBefore(c, action); }
+            });
+            tmplRow.querySelectorAll(':scope > td.group-right-shared-td').forEach(td => {
+                const c = td.cloneNode(true); _setCellVal(c.querySelector('input, textarea'), ''); targetRow.insertBefore(c, action);
+            });
+        }
+
+        function handleAnomalyDragStart(evt) {
+            anomalyDragSnapshot = getSharedSnapshot(evt.from);
+        }
+
+        function handleAnomalyDragEnd(evt) {
+            const item = evt.item, from = evt.from, to = evt.to;
+            const table = item.closest('table');
+            if (from === to) {
+                rebuildGroupRowspans(to);
+                updateRowNumbers(table);
+                if (to.dataset.groupId) calculateGroupMetrics(to.dataset.groupId);
+                scheduleAutoSave();
+                return;
+            }
+            // 跨管段（跨標別）移動
+            const destGroupId = to.dataset.groupId;
+            const srcGroupId = from.dataset.groupId;
+            const destMain = to.querySelector('tr[data-segment-type="new"]') || to.querySelector('tr.anomaly-row');
+
+            // 移除跟著被拖來的共用欄（屬於來源段），此列改為目的段的子列
+            item.querySelectorAll(':scope > td.core-shared-td, :scope > td.cluster-shared-td, :scope > td.start-manhole-td, :scope > td.group-right-shared-td').forEach(td => td.remove());
+            item.dataset.groupId = destGroupId;
+            item.dataset.segmentType = 'sub';
+            item.dataset.startClusterId = generateId();
+
+            // 先處理來源段（此時 destMain 仍完整，可當複製模板）
+            const remain = from.querySelectorAll('tr.anomaly-row');
+            if (remain.length === 0) {
+                from.remove();
+            } else {
+                if (!from.querySelector('td.core-shared-td')) {
+                    // 來源段的主列被拖走，用快照＋目的段模板重建共用欄
+                    const firstRow = from.querySelector('tr.anomaly-row');
+                    buildSharedCellsInto(firstRow, anomalyDragSnapshot || {}, destMain);
+                    firstRow.dataset.segmentType = 'new';
+                }
+                rebuildGroupRowspans(from);
+                if (srcGroupId) calculateGroupMetrics(srcGroupId);
+            }
+
+            // 再重建目的段
+            rebuildGroupRowspans(to);
+            if (item.querySelector('.single-weight-input')) calculateSingleWeight(item);
+            if (destGroupId) calculateGroupMetrics(destGroupId);
+            updateRowNumbers(table);
+            scheduleAutoSave();
+            showMessage('已將異常移動到其他管段');
+        }
+
         function addSegmentRow() {
             const panel = document.querySelector(`#panel-${activeProjectId}`);
             if(!panel) return;
@@ -2669,6 +2794,7 @@
                         <option value="HDPE">HDPE</option>
                         <option value="DIP">DIP</option>
                         <option value="ABS">ABS</option>
+                        <option value="ACP">ACP</option>
                     </select>
                 </td>
                 <td><input type="text" placeholder="起點"></td>
@@ -2717,13 +2843,12 @@
             wrapCoreCells(newTbody);
 
             new Sortable(newTbody, {
-                group: groupId,
+                group: 'anomalies',
                 draggable: 'tr.anomaly-row',
                 handle: '.anomaly-drag-handle',
                 animation: 150,
-                onEnd: function() {
-                    rebuildGroupRowspans(newTbody);
-                }
+                onStart: handleAnomalyDragStart,
+                onEnd: handleAnomalyDragEnd
             });
 
             updateRowNumbers(table);
