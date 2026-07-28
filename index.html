@@ -76,6 +76,7 @@
         .col-project { min-width: 108px; }
         .col-node { min-width: 88px; }
         .col-date { min-width: 108px; }
+        .col-road { min-width: 108px; }
         .col-desc { min-width: 220px; }
         .col-small { min-width: 60px; }
 
@@ -719,17 +720,36 @@
             applyLockState();
         }
 
+        // 依欄寬與文字內容估算行數，直接設定固定高度（不量 scrollHeight，隱藏時也正確、且無回流成本）
+        function cellCapacity(el) {
+            let w = el.offsetWidth || (el.parentNode && el.parentNode.offsetWidth) || 0;
+            if (!w) { // 隱藏時取不到寬度，依欄位類別給預設寬
+                const td = el.closest('td');
+                if (td && td.classList.contains('start-manhole-td')) w = 88;
+                else w = 104;
+            }
+            const usable = Math.max(w - 10, 20);
+            return Math.max(Math.floor(usable / 14), 3); // 每行可容 CJK 字數（拉丁字/數字約算 0.6）
+        }
+        function textLines(value, cap) {
+            const raw = String(value == null ? '' : value);
+            if (!raw) return 1;
+            let lines = 0;
+            raw.split('\n').forEach(seg => {
+                // 全形算 1、半形算 0.6
+                let units = 0;
+                for (const ch of seg) units += /[\x00-\xff]/.test(ch) ? 0.6 : 1;
+                lines += Math.max(Math.ceil(units / cap), 1);
+            });
+            return Math.max(lines, 1);
+        }
         function autoGrowCell(el) {
-            el.style.height = 'auto';
-            el.style.height = (el.scrollHeight) + 'px';
+            const lines = textLines(el.value, cellCapacity(el));
+            el.style.height = (lines * 18 + 8) + 'px'; // 行高約18px + 上下padding
             el.dataset.grown = '1';
         }
-        // 批次重算一組換行欄位高度，先統一寫 auto 再統一讀 scrollHeight，避免逐一強制回流造成切換卡頓
         function autoGrowCells(list) {
-            const els = Array.from(list);
-            if (!els.length) return;
-            els.forEach(el => { el.style.height = 'auto'; });
-            els.forEach(el => { el.style.height = el.scrollHeight + 'px'; el.dataset.grown = '1'; });
+            Array.from(list).forEach(autoGrowCell);
         }
         document.addEventListener('input', function(e){
             if (e.target && e.target.classList && e.target.classList.contains('cell-wrap')) autoGrowCell(e.target);
@@ -1936,8 +1956,8 @@
             document.querySelectorAll('.project-panel').forEach(panel => panel.classList.add('hidden'));
             const panel = document.getElementById(`panel-${id}`);
             panel.classList.remove('hidden');
-            // 面板由隱藏轉為顯示後，只重算尚未量過高度的欄位（隱藏時 scrollHeight 為 0），避免每次切換都全表回流
-            autoGrowCells(panel.querySelectorAll('textarea.cell-wrap:not([data-grown])'));
+            // 面板顯示後依實際欄寬重算固定高度（文字估算、無回流成本）
+            autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
 
             returnToDataEntry();
         }
@@ -1970,7 +1990,7 @@
                             <th colspan="3" class="text-center">管段編號</th>
                             <th rowspan="3" class="col-date text-center">檢視日期</th>
                             <th rowspan="3" class="col-small text-center">檢視次第</th>
-                            <th rowspan="3" class="text-center">路名</th>
+                            <th rowspan="3" class="col-road text-center">路名</th>
                             <th rowspan="3" class="col-small text-center">檢視長度(m)</th>
                             <th rowspan="3" class="col-small text-center">管徑(mm)</th>
                             <th rowspan="3" class="col-small text-center">管材</th>
@@ -2037,6 +2057,8 @@
 
         // 確保載入的舊表格也有「工程標別」排序鈕（舊存檔以 innerHTML 回復，不含新鈕）
         function ensureProjectSortButton(table){
+            const roadTh = Array.from(table.querySelectorAll('thead th')).find(th => th.textContent.trim() === '路名');
+            if (roadTh) roadTh.classList.add('col-road');
             const th = table.querySelector('thead th.col-project');
             if(!th || th.querySelector('button')) return;
             th.innerHTML = '<div class="flex items-center justify-center gap-1">工程標別<button onclick="sortByProject()" title="依工程標別排序" class="text-gray-400 hover:text-blue-600 leading-none">⇅</button></div>';
