@@ -722,6 +722,14 @@
         function autoGrowCell(el) {
             el.style.height = 'auto';
             el.style.height = (el.scrollHeight) + 'px';
+            el.dataset.grown = '1';
+        }
+        // 批次重算一組換行欄位高度，先統一寫 auto 再統一讀 scrollHeight，避免逐一強制回流造成切換卡頓
+        function autoGrowCells(list) {
+            const els = Array.from(list);
+            if (!els.length) return;
+            els.forEach(el => { el.style.height = 'auto'; });
+            els.forEach(el => { el.style.height = el.scrollHeight + 'px'; el.dataset.grown = '1'; });
         }
         document.addEventListener('input', function(e){
             if (e.target && e.target.classList && e.target.classList.contains('cell-wrap')) autoGrowCell(e.target);
@@ -1928,8 +1936,8 @@
             document.querySelectorAll('.project-panel').forEach(panel => panel.classList.add('hidden'));
             const panel = document.getElementById(`panel-${id}`);
             panel.classList.remove('hidden');
-            // 面板由隱藏轉為顯示後，重新計算可換行欄位高度（隱藏時 scrollHeight 為 0）
-            panel.querySelectorAll('textarea.cell-wrap').forEach(autoGrowCell);
+            // 面板由隱藏轉為顯示後，只重算尚未量過高度的欄位（隱藏時 scrollHeight 為 0），避免每次切換都全表回流
+            autoGrowCells(panel.querySelectorAll('textarea.cell-wrap:not([data-grown])'));
 
             returnToDataEntry();
         }
@@ -2440,7 +2448,7 @@
 
             // 重建過程會以純 input 重新產生起始人孔/共用欄，需再換回可換行的 textarea 並重算高度
             wrapCoreCells(tbody);
-            tbody.querySelectorAll('textarea.cell-wrap').forEach(autoGrowCell);
+            autoGrowCells(tbody.querySelectorAll('textarea.cell-wrap'));
         }
 
         function addSegmentRow() {
