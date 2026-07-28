@@ -2437,6 +2437,10 @@
             const mainRow = rows[0];
             getCoreSharedCells(mainRow).forEach(c => c.rowSpan = rowCount);
             getGroupRightSharedCells(mainRow).forEach(c => c.rowSpan = rowCount);
+
+            // 重建過程會以純 input 重新產生起始人孔/共用欄，需再換回可換行的 textarea 並重算高度
+            wrapCoreCells(tbody);
+            tbody.querySelectorAll('textarea.cell-wrap').forEach(autoGrowCell);
         }
 
         function addSegmentRow() {
