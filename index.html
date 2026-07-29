@@ -3483,7 +3483,7 @@
             Array.from(mainRow.children).forEach(td => {
                 if (td.tagName !== 'TD') return;
                 const t = classifyCoreCell(td);
-                const el = td.querySelector('input, select');
+                const el = td.querySelector('input, select, textarea');
                 const v = el ? el.value : '';
                 if (t === 'up') info.up = v;
                 else if (t === 'down') info.down = v;
