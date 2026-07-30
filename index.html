@@ -3490,6 +3490,9 @@
                 else if (t === 'diameter') info.diameter = v;
                 else if (t === 'length') info.length = v;
             });
+            // L 改用總管長（若已由管線CSV帶入）
+            const totalLen = segmentTotalLengths[activeProjectId]?.[tbody.dataset.groupId];
+            if (totalLen !== undefined && totalLen !== null && totalLen !== '') info.length = totalLen;
             const gradeEl = mainRow.querySelector('.eval-grade-input');
             info.grade = gradeEl ? (gradeEl.value || '').trim() : '';
             const rowNumEl = mainRow.querySelector('.row-number');
@@ -3607,7 +3610,7 @@
             let html = '<div class="overflow-x-auto"><table id="hydraulicTable" class="border-collapse text-center text-sm">'
                 + '<thead><tr>'
                 + th('管段編號') + th('人孔編號<br>(上游)') + th('人孔編號<br>(下游)') + th('原管徑<br>D1(mm)') + th('板帶高度<br>H(mm)')
-                + th('修繕後管徑<br>D2(mm)') + th('上游渠底<br>高程U(m)') + th('下游渠底<br>高程D(m)') + th('檢視長度<br>L(m)')
+                + th('修繕後管徑<br>D2(mm)') + th('上游渠底<br>高程U(m)') + th('下游渠底<br>高程D(m)') + th('總管長<br>L(m)')
                 + th('坡度 S(%)') + th('粗糙係數<br>N1(修繕前)') + th('0.5D流量<br>前(CMD)') + th('0.8D流量<br>前(CMD)')
                 + th('粗糙係數<br>N2(修繕後)') + th('0.5D流量<br>後(CMD)') + th('0.8D流量<br>後(CMD)') + th('0.5D<br>水深比')
                 + `<th class="border border-gray-400 px-2 py-1 bg-gray-100 text-sm whitespace-nowrap"><div class="flex items-center justify-center gap-1">評估分級<br>A-C<button onclick="toggleHydraulicFilter(event)" title="篩選評估分級" class="ml-1 text-gray-500 hover:text-cyan-600 leading-none" style="font-size:13px">▾</button></div></th>`
@@ -3641,7 +3644,7 @@
             html += '</tbody></table></div>';
             const selNow = hydraulicGradeFilter[activeProjectId];
             const filterNote = selNow ? `<span class="text-cyan-700 font-semibold">（已篩選：${selNow.join('、') || '無'}）</span>` : '';
-            html += '<p class="text-gray-500 text-xs mt-3">說明：灰底欄位由統計表帶入（唯讀）；黃底欄位可自行輸入；坡度 i、修繕後管徑、各流量與水深比皆依水理表公式自動計算。坡度 S =(上游渠底高程U − 下游渠底高程D) / 檢視長度L。' + filterNote + '</p>';
+            html += '<p class="text-gray-500 text-xs mt-3">說明：灰底欄位由統計表帶入（唯讀）；黃底欄位可自行輸入；坡度 i、修繕後管徑、各流量與水深比皆依水理表公式自動計算。坡度 S =(上游渠底高程U − 下游渠底高程D) / 總管長L。' + filterNote + '</p>';
 
             // 篩選下拉選單（預設隱藏）
             const cur = hydraulicGradeFilter[activeProjectId];
