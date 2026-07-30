@@ -564,6 +564,10 @@
             if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) {
                 menu.classList.add('hidden');
             }
+            const rMenu = document.getElementById('reportFilterMenu');
+            if (rMenu && !rMenu.classList.contains('hidden') && !rMenu.contains(e.target)) {
+                rMenu.classList.add('hidden');
+            }
             const row = e.target.closest('tr.anomaly-row');
             if (row) {
                 lastActiveGroupId = row.dataset.groupId;
@@ -3344,6 +3348,33 @@
             generateReportDesignTable();
         }
 
+        // 提報修繕頁：評估分級篩選（Excel 式下拉）
+        let reportGradeFilter = {};
+        function toggleReportFilter(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('reportFilterMenu');
+            if (!menu) return;
+            if (!menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
+            const r = e.currentTarget.getBoundingClientRect();
+            menu.style.left = Math.min(r.left, window.innerWidth - 200) + 'px';
+            menu.style.top = (r.bottom + 4) + 'px';
+            menu.classList.remove('hidden');
+        }
+        function closeReportFilter() {
+            const menu = document.getElementById('reportFilterMenu');
+            if (menu) menu.classList.add('hidden');
+        }
+        function reportFilterAll(on) {
+            document.querySelectorAll('.rpt-filter-cb').forEach(cb => { cb.checked = on; });
+        }
+        function applyReportFilter() {
+            const cbs = Array.from(document.querySelectorAll('.rpt-filter-cb'));
+            const sel = cbs.filter(cb => cb.checked).map(cb => cb.value);
+            reportGradeFilter[activeProjectId] = (sel.length === cbs.length) ? null : sel;
+            closeReportFilter();
+            generateReportDesignTable();
+        }
+
         // 提報修繕頁：僅列出評估分級為 A-1、B-1、C-1 的管段，內容同主統計表
         function generateReportDesignTable() {
             const ws = document.getElementById('reportDesignWorkspace');
@@ -3426,11 +3457,55 @@
                 mainRow.appendChild(td);
             });
 
+            // 評估分級篩選：標記各管段分級並依篩選隱藏列
+            const gradeSet = [];
+            table.querySelectorAll('tbody.segment-group').forEach(tb => {
+                const mainRow = tb.querySelector('tr[data-segment-type="new"]');
+                const el = mainRow ? mainRow.querySelector('.eval-grade-input') : null;
+                const g = el ? ((el.value || '').trim() || '(空白)') : '(空白)';
+                tb.dataset.grade = g;
+                if (!gradeSet.includes(g)) gradeSet.push(g);
+            });
+            const sel = reportGradeFilter[activeProjectId];
+            table.querySelectorAll('tbody.segment-group').forEach(tb => {
+                tb.style.display = (sel && !sel.includes(tb.dataset.grade)) ? 'none' : '';
+            });
+
+            // 在「評估分級A-C」表頭注入篩選按鈕
+            const gradeTh = Array.from(table.querySelectorAll('thead th')).find(th => th.textContent.replace(/\s/g, '').includes('評估分級'));
+            if (gradeTh) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.title = '篩選評估分級';
+                btn.className = 'ml-1 align-middle text-gray-500 hover:text-blue-600 leading-none';
+                btn.style.fontSize = '13px';
+                btn.textContent = '▾';
+                btn.onclick = toggleReportFilter;
+                gradeTh.appendChild(btn);
+            }
+
             ws.innerHTML = '';
             const wrap = document.createElement('div');
             wrap.className = 'overflow-x-auto';
             wrap.appendChild(table);
             ws.appendChild(wrap);
+
+            // 篩選提示 + 下拉選單
+            const filterNote = sel ? `<span class="text-blue-700 font-semibold text-xs">（已篩選：${sel.join('、') || '無'}）</span>` : '';
+            const note = document.createElement('p');
+            note.className = 'text-gray-500 text-xs mt-2';
+            note.innerHTML = '說明：點表頭「評估分級」旁的 ▾ 可依分級篩選顯示。' + filterNote;
+            ws.appendChild(note);
+
+            const checkboxes = gradeSet.map(g => {
+                const checked = !sel || sel.includes(g);
+                return `<label class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 cursor-pointer text-sm"><input type="checkbox" value="${g}" ${checked ? 'checked' : ''} class="rpt-filter-cb">${g}</label>`;
+            }).join('');
+            const menu = document.createElement('div');
+            menu.id = 'reportFilterMenu';
+            menu.className = 'hidden fixed z-[130] bg-white border border-gray-300 rounded-md shadow-lg py-1 min-w-[160px]';
+            menu.innerHTML = `<div class="px-3 py-1.5 border-b flex justify-between text-xs text-gray-500"><button onclick="reportFilterAll(true)" class="hover:text-blue-600">全選</button><button onclick="reportFilterAll(false)" class="hover:text-blue-600">清除</button></div>${checkboxes}<div class="px-3 py-2 border-t flex justify-end gap-2"><button onclick="closeReportFilter()" class="text-xs px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">取消</button><button onclick="applyReportFilter()" class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">確定</button></div>`;
+            ws.appendChild(menu);
         }
 
         function saveRepairAdvice(groupId, value) {
