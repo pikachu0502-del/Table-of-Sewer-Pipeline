@@ -180,6 +180,7 @@
                         <button onclick="addSubRowDifferentStart()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 不同起始人孔</button>
                         <button onclick="openClusterAssign()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 分配起始人孔</button>
                         <button onclick="addSegmentRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 管段</button>
+                        <button onclick="openMoveSegmentsModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 跨專案移動管段</button>
                         <button onclick="triggerImportXlsm()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↑ 匯入 xlsm</button>
                         <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
                         <button onclick="exportData()" class="px-3.5 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-800 text-white hover:bg-slate-900">↓ 匯出 Excel</button>
@@ -2006,8 +2007,87 @@
             panel.classList.remove('hidden');
             // 面板顯示後依實際欄寬重算固定高度（文字估算、無回流成本）
             autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
+            ensureSegmentCheckboxes(panel);
 
             returnToDataEntry();
+        }
+
+        // 在每個管段主列的操作欄加入「跨專案移動」勾選框（若尚未存在）
+        function ensureSegmentCheckboxes(container) {
+            (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
+                const actionTd = mainRow.lastElementChild;
+                if (!actionTd || actionTd.querySelector('.seg-move-cb')) return;
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'seg-move-cb w-4 h-4 accent-indigo-600 cursor-pointer';
+                cb.title = '勾選以跨專案移動此管段';
+                actionTd.insertBefore(cb, actionTd.firstChild);
+            });
+        }
+
+        function openMoveSegmentsModal() {
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            if (!panel) { showMessage('請先選擇專案', true); return; }
+            const selected = Array.from(panel.querySelectorAll('tbody.segment-group')).filter(tb => {
+                const cb = tb.querySelector('tr[data-segment-type="new"] .seg-move-cb');
+                return cb && cb.checked;
+            });
+            if (selected.length === 0) { showMessage('請先勾選要移動的管段', true); return; }
+            const others = projects.filter(p => p.id !== activeProjectId);
+            if (others.length === 0) { showMessage('沒有其他專案可移動', true); return; }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            const box = document.createElement('div');
+            box.className = 'bg-white rounded-lg shadow-xl w-full max-w-sm p-5';
+            box.innerHTML = `
+                <h3 class="text-lg font-bold text-gray-800 mb-1">跨專案移動管段</h3>
+                <p class="text-sm text-gray-500 mb-4">已選取 <span class="font-semibold text-indigo-600">${selected.length}</span> 個管段，請選擇移動的目標專案：</p>
+                <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y">
+                    ${others.map(p => `<label class="flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"><input type="radio" name="moveTargetProj" value="${p.id}" class="accent-indigo-600">${p.name}</label>`).join('')}
+                </div>
+                <div class="flex justify-end gap-2 mt-5">
+                    <button class="mv-cancel text-sm px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">取消</button>
+                    <button class="mv-confirm text-sm px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">移動</button>
+                </div>`;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            box.querySelector('.mv-cancel').onclick = () => overlay.remove();
+            box.querySelector('.mv-confirm').onclick = () => {
+                const chosen = box.querySelector('input[name="moveTargetProj"]:checked');
+                if (!chosen) { showMessage('請選擇目標專案', true); return; }
+                moveSegmentsToProject(selected, chosen.value);
+                overlay.remove();
+            };
+        }
+
+        function moveSegmentsToProject(tbodys, targetId) {
+            const srcId = activeProjectId;
+            const tgtPanel = document.querySelector(`#panel-${targetId}`);
+            const tgtTable = tgtPanel ? tgtPanel.querySelector('table') : null;
+            const srcTable = document.querySelector(`#panel-${srcId} table`);
+            if (!tgtTable) { showMessage('找不到目標專案', true); return; }
+            tbodys.forEach(tb => {
+                const gid = tb.dataset.groupId;
+                const cb = tb.querySelector('.seg-move-cb');
+                if (cb) cb.checked = false;
+                tgtTable.appendChild(tb); // 移動實際節點，保留欄位即時輸入值
+                // 隨管段搬移對應的每段資料
+                [['diagramData', typeof diagramData !== 'undefined' ? diagramData : null],
+                 ['segmentTotalLengths', typeof segmentTotalLengths !== 'undefined' ? segmentTotalLengths : null]].forEach(([, store]) => {
+                    if (store && store[srcId] && store[srcId][gid] !== undefined) {
+                        if (!store[targetId]) store[targetId] = {};
+                        store[targetId][gid] = store[srcId][gid];
+                        delete store[srcId][gid];
+                    }
+                });
+            });
+            if (srcTable) updateRowNumbers(srcTable);
+            updateRowNumbers(tgtTable);
+            ensureSegmentCheckboxes(tgtPanel);
+            scheduleAutoSave();
+            showMessage(`已移動 ${tbodys.length} 個管段至「${projects.find(p => p.id === targetId).name}」`);
         }
 
         function editProjectName(id) {
@@ -2860,6 +2940,7 @@
             });
 
             updateRowNumbers(table);
+            ensureSegmentCheckboxes(panel);
             
             panel.scrollTop = panel.scrollHeight;
             panel.scrollLeft = 0; 
