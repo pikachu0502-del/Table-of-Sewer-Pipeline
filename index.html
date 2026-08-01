@@ -2026,6 +2026,28 @@
                 cb.title = '勾選以跨專案移動此管段';
                 numTd.appendChild(cb);
             });
+            (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
+                const dragTd = mainRow.querySelector('.segment-drag-handle');
+                if (!dragTd || dragTd.querySelector('.seg-top-btn')) return;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'seg-top-btn block mx-auto mt-1 text-gray-400 hover:text-indigo-600 leading-none';
+                btn.title = '置頂此管段';
+                btn.innerHTML = '<svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>';
+                btn.onclick = (e) => { e.stopPropagation(); moveSegmentToTop(mainRow.closest('tbody.segment-group')); };
+                dragTd.appendChild(btn);
+            });
+        }
+
+        function moveSegmentToTop(tbody) {
+            if (!tbody) return;
+            const table = tbody.closest('table');
+            if (!table) return;
+            const first = table.querySelector('tbody.segment-group');
+            if (first && first !== tbody) table.insertBefore(tbody, first);
+            updateRowNumbers(table);
+            scheduleAutoSave();
+            showMessage('已置頂管段');
         }
 
         function openMoveSegmentsModal() {
