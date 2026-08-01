@@ -597,6 +597,10 @@
             if (rMenu && !rMenu.classList.contains('hidden') && !rMenu.contains(e.target)) {
                 rMenu.classList.add('hidden');
             }
+            const mgMenu = document.getElementById('mainGradeFilterMenu');
+            if (mgMenu && !mgMenu.classList.contains('hidden') && !mgMenu.contains(e.target) && !e.target.closest('.main-grade-filter-btn')) {
+                mgMenu.classList.add('hidden');
+            }
             const row = e.target.closest('tr.anomaly-row');
             if (row) {
                 lastActiveGroupId = row.dataset.groupId;
@@ -2047,6 +2051,8 @@
                 inp.parentNode.replaceChild(ta, inp);
             });
             autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
+            ensureMainGradeFilter(panel);
+            applyMainGradeFilter(panel);
 
             returnToDataEntry();
         }
@@ -3817,6 +3823,74 @@
             menu.className = 'hidden fixed z-[130] bg-white border border-gray-300 rounded-md shadow-lg py-1 min-w-[160px]';
             menu.innerHTML = `<div class="px-3 py-1.5 border-b flex justify-between text-xs text-gray-500"><button onclick="reportFilterAll(true)" class="hover:text-blue-600">全選</button><button onclick="reportFilterAll(false)" class="hover:text-blue-600">清除</button></div>${checkboxes}<div class="px-3 py-2 border-t flex justify-end gap-2"><button onclick="closeReportFilter()" class="text-xs px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">取消</button><button onclick="applyReportFilter()" class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">確定</button></div>`;
             ws.appendChild(menu);
+        }
+
+        // 主資料表：評估分級A-C 篩選（Excel 式下拉，比照水理分析）
+        let mainGradeFilter = {};
+        function ensureMainGradeFilter(panel) {
+            const table = panel.querySelector('table');
+            if (!table) return;
+            const th = Array.from(table.querySelectorAll('thead th')).find(t => t.textContent.replace(/\s/g, '').includes('評估分級A-C'));
+            if (!th || th.querySelector('.main-grade-filter-btn')) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'main-grade-filter-btn ml-1 align-middle text-gray-400 hover:text-blue-600 leading-none';
+            btn.style.fontSize = '13px';
+            btn.title = '篩選評估分級';
+            btn.textContent = '▾';
+            btn.onclick = toggleMainGradeFilter;
+            th.appendChild(btn);
+        }
+        function collectMainGrades(table) {
+            const set = [];
+            table.querySelectorAll('tbody.segment-group').forEach(tb => {
+                const main = tb.querySelector('tr[data-segment-type="new"]');
+                const el = main ? main.querySelector('.eval-grade-input') : null;
+                const g = el ? ((el.value || '').trim() || '(空白)') : '(空白)';
+                tb.dataset.grade = g;
+                if (!set.includes(g)) set.push(g);
+            });
+            return set;
+        }
+        function applyMainGradeFilter(panel) {
+            const table = panel.querySelector('table');
+            if (!table) return;
+            collectMainGrades(table);
+            const sel = mainGradeFilter[activeProjectId];
+            table.querySelectorAll('tbody.segment-group').forEach(tb => {
+                tb.style.display = (sel && !sel.includes(tb.dataset.grade)) ? 'none' : '';
+            });
+        }
+        function toggleMainGradeFilter(e) {
+            e.stopPropagation();
+            let menu = document.getElementById('mainGradeFilterMenu');
+            if (menu && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
+            const panel = document.querySelector('#panel-' + activeProjectId);
+            const table = panel ? panel.querySelector('table') : null;
+            if (!table) return;
+            const grades = collectMainGrades(table);
+            const sel = mainGradeFilter[activeProjectId];
+            const checkboxes = grades.map(g => {
+                const checked = !sel || sel.includes(g);
+                return `<label class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 cursor-pointer text-sm"><input type="checkbox" value="${g}" ${checked ? 'checked' : ''} class="mgrade-filter-cb">${g}</label>`;
+            }).join('');
+            if (!menu) { menu = document.createElement('div'); menu.id = 'mainGradeFilterMenu'; document.body.appendChild(menu); }
+            menu.className = 'fixed z-[130] bg-white border border-gray-300 rounded-md shadow-lg py-1 min-w-[160px]';
+            menu.innerHTML = `<div class="px-3 py-1.5 border-b flex justify-between text-xs text-gray-500"><button onclick="mainGradeFilterAll(true)" class="hover:text-blue-600">全選</button><button onclick="mainGradeFilterAll(false)" class="hover:text-blue-600">清除</button></div>${checkboxes}<div class="px-3 py-2 border-t flex justify-end gap-2"><button onclick="closeMainGradeFilter()" class="text-xs px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">取消</button><button onclick="applyMainGradeFilterFromMenu()" class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">確定</button></div>`;
+            const r = e.currentTarget.getBoundingClientRect();
+            menu.style.left = Math.min(r.left, window.innerWidth - 200) + 'px';
+            menu.style.top = (r.bottom + 4) + 'px';
+            menu.classList.remove('hidden');
+        }
+        function mainGradeFilterAll(on) { document.querySelectorAll('.mgrade-filter-cb').forEach(cb => { cb.checked = on; }); }
+        function closeMainGradeFilter() { const m = document.getElementById('mainGradeFilterMenu'); if (m) m.classList.add('hidden'); }
+        function applyMainGradeFilterFromMenu() {
+            const cbs = Array.from(document.querySelectorAll('.mgrade-filter-cb'));
+            const sel = cbs.filter(cb => cb.checked).map(cb => cb.value);
+            mainGradeFilter[activeProjectId] = (sel.length === cbs.length) ? null : sel;
+            closeMainGradeFilter();
+            const panel = document.querySelector('#panel-' + activeProjectId);
+            if (panel) applyMainGradeFilter(panel);
         }
 
         function saveRepairAdvice(groupId, value) {
