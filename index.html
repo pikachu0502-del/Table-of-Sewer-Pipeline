@@ -2037,6 +2037,16 @@
             autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
             ensureSegmentCheckboxes(panel);
             ensureDescWraps(panel);
+            // 舊存檔的「處理建議」為 input，升級為可換行的 textarea
+            panel.querySelectorAll('input.suggestion-input').forEach(inp => {
+                const ta = document.createElement('textarea');
+                ta.className = (inp.className || '') + ' cell-wrap';
+                ta.readOnly = true; ta.rows = 1; ta.placeholder = inp.placeholder || '自動計算';
+                ta.value = inp.value || '';
+                const td = inp.closest('td'); if (td) td.classList.add('col-desc');
+                inp.parentNode.replaceChild(ta, inp);
+            });
+            autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
 
             returnToDataEntry();
         }
@@ -2571,7 +2581,7 @@
                 }
 
                 const suggestionInput = row.querySelector('.suggestion-input');
-                if (suggestionInput) suggestionInput.value = suggestion;
+                if (suggestionInput) { suggestionInput.value = suggestion; if (typeof autoGrowCell === 'function' && suggestionInput.classList.contains('cell-wrap')) autoGrowCell(suggestionInput); }
             });
         }
 
@@ -3130,7 +3140,7 @@
                 </td>
                 <td class="group-right-shared-td"><input type="text" class="total-weight-input readonly-bg" readonly placeholder="自動計算"></td>
                 <td class="group-right-shared-td"><input type="text" class="eval-grade-input readonly-bg font-bold text-center" readonly placeholder="自動計算"></td>
-                <td class="group-right-shared-td"><input type="text" class="suggestion-input readonly-bg text-center" readonly placeholder="自動計算"></td>
+                <td class="group-right-shared-td col-desc"><textarea class="suggestion-input cell-wrap readonly-bg text-center" readonly rows="1" placeholder="自動計算"></textarea></td>
                 <td class="flex flex-col gap-2 items-center justify-center p-2">
                     <div class="anomaly-drag-handle cursor-move text-gray-400 transition-colors" title="上下拖曳異常順序"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg></div>
                     <button onclick="deleteRow(this)" class="text-red-500 hover:text-red-700 transition duration-150" title="刪除此列"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>
