@@ -133,10 +133,18 @@
             <div class="px-3 py-3 border-t border-slate-700 flex flex-col gap-2">
                 <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-0.5">儲存／匯出</span>
                 <button onclick="exportAllToExcel()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">↓ 匯出本專案 Excel</button>
-                <button onclick="saveAppData()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">儲存至本機</button>
                 <button onclick="manualCloudSave()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">壓縮並儲存至雲端</button>
                 <input type="file" id="fileInput" onchange="loadAppData(event)" class="hidden" accept=".json">
-                <button onclick="document.getElementById('fileInput').click()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">自本機匯入</button>
+                <div class="flex gap-2">
+                    <button onclick="saveAppData()" class="flex-1 inline-flex items-center justify-center gap-1 bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors" title="儲存至本機">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
+                        匯出
+                    </button>
+                    <button onclick="document.getElementById('fileInput').click()" class="flex-1 inline-flex items-center justify-center gap-1 bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors" title="自本機匯入">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 9l5-5 5 5M12 4v12"></path></svg>
+                        匯入
+                    </button>
+                </div>
                 <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-0.5 mt-1">專案</span>
                 <button onclick="showProjectStatsModal()" class="w-full text-left bg-slate-700/60 hover:bg-slate-700 text-slate-100 text-sm font-medium py-1.5 px-3 rounded-md transition-colors">專案統計</button>
                 <button onclick="createNewProject()" class="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold py-1.5 px-3 rounded-md transition-colors">+ 新增專案</button>
