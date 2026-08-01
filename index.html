@@ -79,7 +79,10 @@
         .col-road { min-width: 108px; }
         .col-desc { min-width: 108px; max-width: 108px; width: 108px; }
         td.col-desc, th.col-desc { white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
-        select.anomaly-desc-select { white-space: normal; word-break: break-word; overflow-wrap: anywhere; width: 100%; }
+        .desc-select-wrap { position: relative; width: 100%; min-height: 2.6em; }
+        .desc-select-wrap select.anomaly-desc-select { position: absolute; inset: 0; width: 100%; height: 100%; color: transparent; background: transparent; border: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
+        .desc-select-wrap .desc-label { pointer-events: none; white-space: normal; word-break: break-word; overflow-wrap: anywhere; font-size: 12px; line-height: 1.25; text-align: center; padding: 4px 2px; min-height: 2.6em; display: flex; align-items: center; justify-content: center; }
+        .desc-select-wrap .desc-label.placeholder { color: #9ca3af; }
         .col-small { min-width: 60px; }
 
         .highlight-text { color: #ef4444; }
@@ -2032,6 +2035,7 @@
             // 面板顯示後依實際欄寬重算固定高度（文字估算、無回流成本）
             autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
             ensureSegmentCheckboxes(panel);
+            ensureDescWraps(panel);
 
             returnToDataEntry();
         }
@@ -2225,7 +2229,9 @@
 
         function getSelectHTML() {
             return `
-                <select onchange="updateFields(this)" class="anomaly-desc-select text-center">
+                <div class="desc-select-wrap">
+                <span class="desc-label placeholder">請選擇</span>
+                <select onchange="updateFields(this); syncDescLabel(this);" class="anomaly-desc-select text-center">
                     <option value="">請選擇</option>
                     <option value="破損龜裂">破損龜裂</option>
                     <option value="不明管接入">不明管接入</option>
@@ -2239,7 +2245,37 @@
                     <option value="油脂結垢">油脂結垢</option>
                     <option value="PVC裡襯剝離(含節O型環)">PVC裡襯剝離(含節O型環)</option>
                 </select>
+                </div>
             `;
+        }
+
+        // 將選單目前值同步到覆蓋的換行標籤
+        function syncDescLabel(sel){
+            const wrap = sel.closest('.desc-select-wrap');
+            if(!wrap) return;
+            const lbl = wrap.querySelector('.desc-label');
+            if(!lbl) return;
+            const v = sel.value;
+            lbl.textContent = v || '請選擇';
+            lbl.classList.toggle('placeholder', !v);
+        }
+
+        // 舊存檔以 innerHTML 回復時，將裸露的 select 補上換行覆蓋層
+        function ensureDescWraps(container){
+            (container || document).querySelectorAll('select.anomaly-desc-select').forEach(sel => {
+                if(sel.closest('.desc-select-wrap')) { syncDescLabel(sel); return; }
+                const wrap = document.createElement('div');
+                wrap.className = 'desc-select-wrap';
+                const lbl = document.createElement('span');
+                lbl.className = 'desc-label placeholder';
+                lbl.textContent = '請選擇';
+                sel.parentNode.insertBefore(wrap, sel);
+                wrap.appendChild(lbl);
+                wrap.appendChild(sel);
+                const oc = sel.getAttribute('onchange') || '';
+                if(!/syncDescLabel/.test(oc)) sel.setAttribute('onchange', (oc ? oc + '; ' : '') + 'syncDescLabel(this);');
+                syncDescLabel(sel);
+            });
         }
 
         // 確保載入的舊表格也有「工程標別」排序鈕（舊存檔以 innerHTML 回復，不含新鈕）
@@ -5608,7 +5644,7 @@
             const en=row.querySelector('input[placeholder="終點"]'); if(en) en.value=a.aEnd||'';
             const di=row.querySelector('input[placeholder="方位"]'); if(di) di.value=a.dir||'';
             const sel=row.querySelector('.anomaly-desc-select');
-            if(sel && a.type){ sel.value=a.type; updateFields(sel); }
+            if(sel && a.type){ sel.value=a.type; updateFields(sel); if(typeof syncDescLabel==='function') syncDescLabel(sel); }
             const sc=row.querySelector('.score-input');
             if(sc && a.score!==''){ sc.value=String(a.score); calculateSingleWeight(row); }
         }
