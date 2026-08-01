@@ -93,6 +93,18 @@
         .segment-drag-handle:active, .anomaly-drag-handle:active { cursor: grabbing; }
         .sortable-ghost { opacity: 0.4; background-color: #e0e7ff; }
 
+        /* 操作欄 <td> 原本設為 display:flex，會脫離表格儲存格排版，
+           導致管段刪到只剩一列時內容垂直錯位。改回正常儲存格並置中。 */
+        tbody.segment-group tr.anomaly-row > td.flex.flex-col {
+            display: table-cell !important;
+            vertical-align: middle !important;
+            text-align: center;
+        }
+        tbody.segment-group tr.anomaly-row > td.flex.flex-col > * {
+            display: block;
+            margin: 3px auto;
+        }
+
         body.ui-locked input, body.ui-locked select, body.ui-locked textarea { pointer-events: none !important; background-color: #f1f5f9 !important; cursor: not-allowed; }
         body.ui-locked .segment-drag-handle, body.ui-locked .anomaly-drag-handle, body.ui-locked .btn-upload, body.ui-locked .btn-remove, body.ui-locked .project-drag-handle { pointer-events: none !important; opacity: .45; }
         body.ui-locked button[onclick^="addSubRow"], body.ui-locked button[onclick^="addSegmentRow"], body.ui-locked button[onclick^="addSubRowDifferentStart"], body.ui-locked button[onclick^="triggerImportXlsm"], body.ui-locked button[onclick^="deleteRow"], body.ui-locked button[onclick^="createNewProject"], body.ui-locked button[onclick^="sortByProject"], body.ui-locked button[onclick^="budgetAdd"], body.ui-locked button[onclick^="budgetDelete"] { pointer-events: none !important; opacity: .4; }
