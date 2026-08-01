@@ -2014,14 +2014,17 @@
 
         // 在每個管段主列的操作欄加入「跨專案移動」勾選框（若尚未存在）
         function ensureSegmentCheckboxes(container) {
+            (container || document).querySelectorAll('.seg-move-cb').forEach(cb => {
+                if (!cb.closest('.row-number')) cb.remove();
+            });
             (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
-                const actionTd = mainRow.lastElementChild;
-                if (!actionTd || actionTd.querySelector('.seg-move-cb')) return;
+                const numTd = mainRow.querySelector('.row-number');
+                if (!numTd || numTd.querySelector('.seg-move-cb')) return;
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
-                cb.className = 'seg-move-cb w-4 h-4 accent-indigo-600 cursor-pointer';
+                cb.className = 'seg-move-cb w-4 h-4 accent-indigo-600 cursor-pointer block mx-auto mt-1';
                 cb.title = '勾選以跨專案移動此管段';
-                actionTd.insertBefore(cb, actionTd.firstChild);
+                numTd.appendChild(cb);
             });
         }
 
