@@ -2028,16 +2028,26 @@
 
         // 在每個管段主列的操作欄加入「跨專案移動」勾選框（若尚未存在）
         function ensureSegmentCheckboxes(container) {
+            // 清掉舊版誤植於其他欄、或曾用 <input type=checkbox> 造成欄位錯位的勾選元素
             (container || document).querySelectorAll('.seg-move-cb').forEach(cb => {
-                if (!cb.closest('.row-number')) cb.remove();
+                if (!cb.closest('.row-number') || cb.tagName === 'INPUT') cb.remove();
             });
             (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
                 const numTd = mainRow.querySelector('.row-number');
                 if (!numTd || numTd.querySelector('.seg-move-cb')) return;
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.className = 'seg-move-cb w-4 h-4 accent-indigo-600 cursor-pointer block mx-auto mt-1';
+                // 用 <span> 而非 <input>，避免被以「input,select,textarea」定位讀取的公式誤算為欄位
+                const cb = document.createElement('span');
+                cb.className = 'seg-move-cb';
+                cb.setAttribute('role', 'checkbox');
+                cb.setAttribute('aria-checked', 'false');
                 cb.title = '勾選以跨專案移動此管段';
+                cb.style.cssText = 'display:block;width:16px;height:16px;margin:4px auto 0;border:2px solid #6366f1;border-radius:3px;cursor:pointer;line-height:12px;text-align:center;font-size:12px;color:#4f46e5;user-select:none;';
+                cb.onclick = function () {
+                    const on = this.getAttribute('aria-checked') !== 'true';
+                    this.setAttribute('aria-checked', on ? 'true' : 'false');
+                    this.textContent = on ? '✓' : '';
+                    this.style.background = on ? '#e0e7ff' : 'transparent';
+                };
                 numTd.appendChild(cb);
             });
             (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
@@ -2069,7 +2079,7 @@
             if (!panel) { showMessage('請先選擇專案', true); return; }
             const selected = Array.from(panel.querySelectorAll('tbody.segment-group')).filter(tb => {
                 const cb = tb.querySelector('tr[data-segment-type="new"] .seg-move-cb');
-                return cb && cb.checked;
+                return cb && cb.getAttribute('aria-checked') === 'true';
             });
             if (selected.length === 0) { showMessage('請先勾選要移動的管段', true); return; }
             const others = projects.filter(p => p.id !== activeProjectId);
@@ -2110,7 +2120,7 @@
             tbodys.forEach(tb => {
                 const gid = tb.dataset.groupId;
                 const cb = tb.querySelector('.seg-move-cb');
-                if (cb) cb.checked = false;
+                if (cb) { cb.setAttribute('aria-checked', 'false'); cb.textContent = ''; cb.style.background = 'transparent'; }
                 tgtTable.appendChild(tb); // 移動實際節點，保留欄位即時輸入值
                 // 隨管段搬移對應的每段資料
                 [['diagramData', typeof diagramData !== 'undefined' ? diagramData : null],
