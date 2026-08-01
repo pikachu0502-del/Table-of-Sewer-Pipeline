@@ -194,6 +194,7 @@
                         <button onclick="addSegmentRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 管段</button>
                         <button onclick="openMoveSegmentsModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 跨專案移動管段</button>
                         <button onclick="openManholeSortModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇅ 人孔連線排序（預覽）</button>
+                        <button onclick="recalcActiveProject()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↻ 重新計算</button>
                         <button onclick="triggerImportXlsm()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↑ 匯入 xlsm</button>
                         <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
                         <button onclick="exportData()" class="px-3.5 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-800 text-white hover:bg-slate-900">↓ 匯出 Excel</button>
@@ -2342,6 +2343,27 @@
             const ordered = [];
             labels.forEach(l=>{ chainGroup(byLabel[l]).forEach(g=>ordered.push(g)); });
             return ordered;
+        }
+
+        // 重新整理：依計算公式對目前專案所有管段/異常列重跑（權重、評估分級等）
+        // 用於匯入後公式未套用的情況
+        function recalcActiveProject() {
+            const panel = document.querySelector('#panel-'+activeProjectId);
+            if(!panel) { showMessage('請先選擇專案', true); return; }
+            const table = panel.querySelector('table');
+            if(!table) return;
+            // 1) 逐列重算單筆權重（會連帶觸發該段 calculateGroupMetrics）
+            table.querySelectorAll('tr.anomaly-row').forEach(row => {
+                if (row.querySelector('.single-weight-input')) {
+                    try { calculateSingleWeight(row); } catch(e) {}
+                }
+            });
+            // 2) 再對每個管段整段重算（評估分級/建議等）
+            table.querySelectorAll('tbody.segment-group').forEach(tb => {
+                if (tb.dataset.groupId) { try { calculateGroupMetrics(tb.dataset.groupId); } catch(e) {} }
+            });
+            scheduleAutoSave();
+            showMessage('已依公式重新計算目前專案');
         }
 
         function openManholeSortModal() {
