@@ -2350,15 +2350,15 @@
             const rows = ordered.map((g, idx) => {
                 const lbl = g.label || '（無標別）';
                 const up = g.upRaw || '—', dn = g.downRaw || '—';
-                return `<tr class="border-b last:border-0"><td class="px-2 py-1.5 text-gray-400 text-right w-10">${idx+1}</td><td class="px-2 py-1.5 text-gray-600">${lbl}</td><td class="px-2 py-1.5 font-mono">${up}</td><td class="px-2 py-1.5 text-gray-400 text-center">→</td><td class="px-2 py-1.5 font-mono">${dn}</td></tr>`;
+                return `<tr class="ms-row border-b last:border-0 cursor-move hover:bg-indigo-50" data-oi="${g.i}"><td class="px-2 py-1.5 text-gray-300 text-center w-6">☰</td><td class="ms-num px-1 py-1.5 text-gray-400 text-right w-8">${idx+1}</td><td class="px-2 py-1.5 text-gray-600">${lbl}</td><td class="px-2 py-1.5 font-mono">${up}</td><td class="px-2 py-1.5 text-gray-400 text-center">→</td><td class="px-2 py-1.5 font-mono">${dn}</td></tr>`;
             }).join('');
             box.innerHTML = `
                 <h3 class="text-lg font-bold text-gray-800 mb-1">人孔連線排序預覽</h3>
-                <p class="text-sm text-gray-500 mb-3">依「工程標別 ${dir===1?'升冪':'降冪'} ＋ 人孔連線」的建議順序如下，確認後才會套用：</p>
+                <p class="text-sm text-gray-500 mb-3">建議順序如下，可直接<span class="font-semibold text-indigo-600">拖曳每一列</span>自行調整，確認後才會套用：</p>
                 <div class="overflow-y-auto border border-gray-200 rounded-md flex-1">
                     <table class="w-full text-sm">
-                        <thead class="bg-gray-50 sticky top-0"><tr class="text-gray-500 text-xs"><th class="px-2 py-1.5 text-right">#</th><th class="px-2 py-1.5 text-left">工程標別</th><th class="px-2 py-1.5 text-left">上游</th><th></th><th class="px-2 py-1.5 text-left">下游</th></tr></thead>
-                        <tbody>${rows}</tbody>
+                        <thead class="bg-gray-50 sticky top-0"><tr class="text-gray-500 text-xs"><th></th><th class="px-1 py-1.5 text-right">#</th><th class="px-2 py-1.5 text-left">工程標別</th><th class="px-2 py-1.5 text-left">上游</th><th></th><th class="px-2 py-1.5 text-left">下游</th></tr></thead>
+                        <tbody id="msSortBody">${rows}</tbody>
                     </table>
                 </div>
                 <div class="flex justify-end gap-2 mt-4">
@@ -2367,14 +2367,22 @@
                 </div>`;
             overlay.appendChild(box);
             document.body.appendChild(overlay);
+            const sortBody = box.querySelector('#msSortBody');
+            const renumber = () => sortBody.querySelectorAll('.ms-num').forEach((td,i)=>td.textContent = i+1);
+            if (window.Sortable) {
+                Sortable.create(sortBody, { animation: 150, handle: '.ms-row', onEnd: renumber });
+            }
             box.querySelector('.ms-cancel').onclick = () => overlay.remove();
             box.querySelector('.ms-confirm').onclick = () => {
-                ordered.forEach(g=>table.appendChild(g.tb));
-                projectSortAsc = !projectSortAsc;
+                const byIndex = {}; ordered.forEach(g => byIndex[g.i] = g);
+                sortBody.querySelectorAll('.ms-row').forEach(tr => {
+                    const g = byIndex[tr.dataset.oi];
+                    if (g) table.appendChild(g.tb);
+                });
                 updateRowNumbers(table);
                 scheduleAutoSave();
                 overlay.remove();
-                showMessage('已依人孔連線排序套用');
+                showMessage('已套用自訂排序');
             };
         }
 
