@@ -181,6 +181,7 @@
                         <button onclick="openClusterAssign()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 分配起始人孔</button>
                         <button onclick="addSegmentRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 管段</button>
                         <button onclick="openMoveSegmentsModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 跨專案移動管段</button>
+                        <button onclick="openManholeSortModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇅ 人孔連線排序（預覽）</button>
                         <button onclick="triggerImportXlsm()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↑ 匯入 xlsm</button>
                         <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
                         <button onclick="exportData()" class="px-3.5 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-800 text-white hover:bg-slate-900">↓ 匯出 Excel</button>
@@ -2280,6 +2281,101 @@
             updateRowNumbers(table);
             scheduleAutoSave();
             showMessage('已依工程標別＋人孔連線排序（標別'+(dir===1?'升冪':'降冪')+'）');
+        }
+
+        // 計算「工程標別＋人孔連線」排序後的管段順序（不套用，供預覽用）
+        function computeManholeOrder(table, dir) {
+            const readCore = (tb)=>{
+                const main = tb.querySelector('tr[data-segment-type="new"]');
+                const o = { label:'', up:'', down:'' };
+                if(!main) return o;
+                main.querySelectorAll(':scope > td.core-shared-td').forEach(td=>{
+                    const t = classifyCoreCell(td); const el = td.querySelector('input, select, textarea');
+                    if(!el) return;
+                    if(t==='field') o.label=(el.value||'').trim();
+                    else if(t==='up') o.up=(el.value||'').trim();
+                    else if(t==='down') o.down=(el.value||'').trim();
+                });
+                return o;
+            };
+            const groups = Array.from(table.querySelectorAll('tbody.segment-group'))
+                .map((tb,i)=>{ const c=readCore(tb); return {tb, i, label:c.label, up:normManhole(c.up), down:normManhole(c.down), upRaw:c.up, downRaw:c.down}; });
+            const labels = [];
+            const byLabel = {};
+            groups.forEach(g=>{ if(!(g.label in byLabel)){ byLabel[g.label]=[]; labels.push(g.label); } byLabel[g.label].push(g); });
+            labels.sort((a,b)=>{
+                if(a===''&&b!=='') return 1; if(b===''&&a!=='') return -1;
+                return a.localeCompare(b,'zh-Hant',{numeric:true})*dir;
+            });
+            const chainGroup = (arr)=>{
+                const used = new Set();
+                const byUp = {};
+                arr.forEach(g=>{ if(g.up && !(g.up in byUp)) byUp[g.up]=g; });
+                const downSet = new Set(arr.map(g=>g.down).filter(Boolean));
+                const starts = arr.filter(g=>!g.up || !downSet.has(g.up))
+                    .sort((a,b)=>a.up.localeCompare(b.up,'zh-Hant',{numeric:true}) || a.i-b.i);
+                const out = [];
+                const follow = (g)=>{
+                    let cur = g;
+                    while(cur && !used.has(cur)){
+                        used.add(cur); out.push(cur);
+                        cur = cur.down ? byUp[cur.down] : null;
+                        if(cur && used.has(cur)) cur = null;
+                    }
+                };
+                starts.forEach(follow);
+                arr.filter(g=>!used.has(g)).sort((a,b)=>a.up.localeCompare(b.up,'zh-Hant',{numeric:true})||a.i-b.i).forEach(follow);
+                return out;
+            };
+            const ordered = [];
+            labels.forEach(l=>{ chainGroup(byLabel[l]).forEach(g=>ordered.push(g)); });
+            return ordered;
+        }
+
+        function openManholeSortModal() {
+            const panel = document.querySelector('#panel-'+activeProjectId);
+            if(!panel) { showMessage('請先選擇專案', true); return; }
+            const table = panel.querySelector('table');
+            if(!table) return;
+            const dir = projectSortAsc ? 1 : -1;
+            const ordered = computeManholeOrder(table, dir);
+            if(ordered.length === 0) { showMessage('沒有管段可排序', true); return; }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            const box = document.createElement('div');
+            box.className = 'bg-white rounded-lg shadow-xl w-full max-w-lg p-5 flex flex-col';
+            box.style.maxHeight = '85vh';
+            const rows = ordered.map((g, idx) => {
+                const lbl = g.label || '（無標別）';
+                const up = g.upRaw || '—', dn = g.downRaw || '—';
+                return `<tr class="border-b last:border-0"><td class="px-2 py-1.5 text-gray-400 text-right w-10">${idx+1}</td><td class="px-2 py-1.5 text-gray-600">${lbl}</td><td class="px-2 py-1.5 font-mono">${up}</td><td class="px-2 py-1.5 text-gray-400 text-center">→</td><td class="px-2 py-1.5 font-mono">${dn}</td></tr>`;
+            }).join('');
+            box.innerHTML = `
+                <h3 class="text-lg font-bold text-gray-800 mb-1">人孔連線排序預覽</h3>
+                <p class="text-sm text-gray-500 mb-3">依「工程標別 ${dir===1?'升冪':'降冪'} ＋ 人孔連線」的建議順序如下，確認後才會套用：</p>
+                <div class="overflow-y-auto border border-gray-200 rounded-md flex-1">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 sticky top-0"><tr class="text-gray-500 text-xs"><th class="px-2 py-1.5 text-right">#</th><th class="px-2 py-1.5 text-left">工程標別</th><th class="px-2 py-1.5 text-left">上游</th><th></th><th class="px-2 py-1.5 text-left">下游</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button class="ms-cancel text-sm px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">取消</button>
+                    <button class="ms-confirm text-sm px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">確認套用</button>
+                </div>`;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            box.querySelector('.ms-cancel').onclick = () => overlay.remove();
+            box.querySelector('.ms-confirm').onclick = () => {
+                ordered.forEach(g=>table.appendChild(g.tb));
+                projectSortAsc = !projectSortAsc;
+                updateRowNumbers(table);
+                scheduleAutoSave();
+                overlay.remove();
+                showMessage('已依人孔連線排序套用');
+            };
         }
 
         function updateRowNumbers(table) {
