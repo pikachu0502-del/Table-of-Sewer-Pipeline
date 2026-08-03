@@ -3514,9 +3514,10 @@
             const list = document.getElementById('segmentList');
             if (!list) return;
             const sel = diagramGradeFilter[activeProjectId];
+            const noFilter = !sel || sel.length === 0;
             let firstVisible = null, currentVisible = false;
             list.querySelectorAll('.diagram-segment-item').forEach(li => {
-                const show = !sel || sel.includes(li.dataset.grade);
+                const show = noFilter || sel.includes(li.dataset.grade);
                 li.style.display = show ? '' : 'none';
                 if (show && !firstVisible) firstVisible = li;
                 if (show && li.dataset.groupId === currentDiagramGroupId) currentVisible = true;
@@ -3551,7 +3552,8 @@
         function applyDiagramGradeFilterFromMenu() {
             const cbs = Array.from(document.querySelectorAll('.dgrade-filter-cb'));
             const sel = cbs.filter(cb => cb.checked).map(cb => cb.value);
-            diagramGradeFilter[activeProjectId] = (sel.length === cbs.length) ? null : sel;
+            // 全選或全不選皆視為不篩選（顯示全部），避免把所有管段藏起來無法還原
+            diagramGradeFilter[activeProjectId] = (sel.length === cbs.length || sel.length === 0) ? null : sel;
             closeDiagramGradeFilter();
             applyDiagramGradeFilter();
         }
@@ -3746,7 +3748,7 @@
         function applyReportFilter() {
             const cbs = Array.from(document.querySelectorAll('.rpt-filter-cb'));
             const sel = cbs.filter(cb => cb.checked).map(cb => cb.value);
-            reportGradeFilter[activeProjectId] = (sel.length === cbs.length) ? null : sel;
+            reportGradeFilter[activeProjectId] = (sel.length === cbs.length || sel.length === 0) ? null : sel;
             closeReportFilter();
             generateReportDesignTable();
         }
@@ -3946,7 +3948,7 @@
         function applyMainGradeFilterFromMenu() {
             const cbs = Array.from(document.querySelectorAll('.mgrade-filter-cb'));
             const sel = cbs.filter(cb => cb.checked).map(cb => cb.value);
-            mainGradeFilter[activeProjectId] = (sel.length === cbs.length) ? null : sel;
+            mainGradeFilter[activeProjectId] = (sel.length === cbs.length || sel.length === 0) ? null : sel;
             closeMainGradeFilter();
             const panel = document.querySelector('#panel-' + activeProjectId);
             if (panel) applyMainGradeFilter(panel);
