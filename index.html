@@ -3514,14 +3514,15 @@
             const list = document.getElementById('segmentList');
             if (!list) return;
             const sel = diagramGradeFilter[activeProjectId];
-            let firstVisible = null;
+            let firstVisible = null, currentVisible = false;
             list.querySelectorAll('.diagram-segment-item').forEach(li => {
                 const show = !sel || sel.includes(li.dataset.grade);
                 li.style.display = show ? '' : 'none';
                 if (show && !firstVisible) firstVisible = li;
+                if (show && li.dataset.groupId === currentDiagramGroupId) currentVisible = true;
             });
-            const active = list.querySelector('.diagram-segment-item.bg-blue-600, .diagram-segment-item.active');
-            if ((!active || active.style.display === 'none') && firstVisible) {
+            // 只有當目前開啟的管段被篩掉時才切換，否則保留使用者當前選取（避免圖片看似消失）
+            if (!currentVisible && firstVisible) {
                 loadDiagramData(firstVisible.dataset.groupId, firstVisible);
             }
         }
