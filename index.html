@@ -296,6 +296,9 @@
         <div id="diagramHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0 hidden">
             <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">管段示意圖製作</h1>
             <div class="space-x-2 shrink-0">
+                <button onclick="toggleDiagramGradeFilter(event)" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    ▾ 損壞等級篩選
+                </button>
                 <button onclick="exportDiagramAsJPEG()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     匯出圖片
                 </button>
@@ -600,6 +603,10 @@
             const mgMenu = document.getElementById('mainGradeFilterMenu');
             if (mgMenu && !mgMenu.classList.contains('hidden') && !mgMenu.contains(e.target) && !e.target.closest('.main-grade-filter-btn')) {
                 mgMenu.classList.add('hidden');
+            }
+            const dgMenu = document.getElementById('diagramGradeFilterMenu');
+            if (dgMenu && !dgMenu.classList.contains('hidden') && !dgMenu.contains(e.target)) {
+                dgMenu.classList.add('hidden');
             }
             const row = e.target.closest('tr.anomaly-row');
             if (row) {
@@ -3474,6 +3481,7 @@
                 const li = document.createElement('li');
                 li.className = `diagram-segment-item cursor-pointer py-3 px-4 hover:bg-gray-700 transition duration-150 flex justify-between items-center group text-gray-200 hover:text-white`;
                 li.dataset.groupId = groupId;
+                li.dataset.grade = grade;
                 
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'truncate flex-1';
@@ -3497,6 +3505,54 @@
             
             const firstItem = list.querySelector('.diagram-segment-item');
             if (firstItem) loadDiagramData(firstItem.dataset.groupId, firstItem);
+            applyDiagramGradeFilter();
+        }
+
+        // 示意圖：依損壞等級（評估分級）篩選左側管段清單
+        let diagramGradeFilter = {};
+        function applyDiagramGradeFilter() {
+            const list = document.getElementById('segmentList');
+            if (!list) return;
+            const sel = diagramGradeFilter[activeProjectId];
+            let firstVisible = null;
+            list.querySelectorAll('.diagram-segment-item').forEach(li => {
+                const show = !sel || sel.includes(li.dataset.grade);
+                li.style.display = show ? '' : 'none';
+                if (show && !firstVisible) firstVisible = li;
+            });
+            const active = list.querySelector('.diagram-segment-item.bg-blue-600, .diagram-segment-item.active');
+            if ((!active || active.style.display === 'none') && firstVisible) {
+                loadDiagramData(firstVisible.dataset.groupId, firstVisible);
+            }
+        }
+        function toggleDiagramGradeFilter(e) {
+            e.stopPropagation();
+            let menu = document.getElementById('diagramGradeFilterMenu');
+            if (menu && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
+            const items = Array.from(document.querySelectorAll('#segmentList .diagram-segment-item'));
+            const grades = [];
+            items.forEach(li => { if (!grades.includes(li.dataset.grade)) grades.push(li.dataset.grade); });
+            const sel = diagramGradeFilter[activeProjectId];
+            const checkboxes = grades.map(g => {
+                const checked = !sel || sel.includes(g);
+                return `<label class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 cursor-pointer text-sm"><input type="checkbox" value="${g}" ${checked ? 'checked' : ''} class="dgrade-filter-cb">${g}</label>`;
+            }).join('') || '<div class="px-3 py-2 text-xs text-gray-400">無管段</div>';
+            if (!menu) { menu = document.createElement('div'); menu.id = 'diagramGradeFilterMenu'; document.body.appendChild(menu); }
+            menu.className = 'fixed z-[130] bg-white border border-gray-300 rounded-md shadow-lg py-1 min-w-[160px] text-gray-700';
+            menu.innerHTML = `<div class="px-3 py-1.5 border-b flex justify-between text-xs text-gray-500"><button onclick="diagramGradeFilterAll(true)" class="hover:text-blue-600">全選</button><button onclick="diagramGradeFilterAll(false)" class="hover:text-blue-600">清除</button></div>${checkboxes}<div class="px-3 py-2 border-t flex justify-end gap-2"><button onclick="closeDiagramGradeFilter()" class="text-xs px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">取消</button><button onclick="applyDiagramGradeFilterFromMenu()" class="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700">確定</button></div>`;
+            const r = e.currentTarget.getBoundingClientRect();
+            menu.style.left = Math.min(r.left, window.innerWidth - 200) + 'px';
+            menu.style.top = (r.bottom + 4) + 'px';
+            menu.classList.remove('hidden');
+        }
+        function diagramGradeFilterAll(on) { document.querySelectorAll('.dgrade-filter-cb').forEach(cb => { cb.checked = on; }); }
+        function closeDiagramGradeFilter() { const m = document.getElementById('diagramGradeFilterMenu'); if (m) m.classList.add('hidden'); }
+        function applyDiagramGradeFilterFromMenu() {
+            const cbs = Array.from(document.querySelectorAll('.dgrade-filter-cb'));
+            const sel = cbs.filter(cb => cb.checked).map(cb => cb.value);
+            diagramGradeFilter[activeProjectId] = (sel.length === cbs.length) ? null : sel;
+            closeDiagramGradeFilter();
+            applyDiagramGradeFilter();
         }
 
         function editSegmentName(groupId, currentName) {
