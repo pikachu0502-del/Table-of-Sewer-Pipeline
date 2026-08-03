@@ -3474,7 +3474,8 @@
                 const upstream = inputs[1]?.value || '?';
                 const downstream = inputs[2]?.value || '?';
                 const groupId = mainRow.dataset.groupId;
-                
+                const gradeEl = mainRow.querySelector('.eval-grade-input');
+                const grade = gradeEl ? ((gradeEl.value || '').trim() || '(空白)') : '(空白)';
                 let customName = diagramData[activeProjectId]?.[groupId]?.customName;
                 const segmentName = customName ? customName : `${rowNum}. ${upstream} ~ ${downstream}`;
 
