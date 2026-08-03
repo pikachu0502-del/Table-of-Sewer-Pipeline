@@ -1689,6 +1689,8 @@
             if (!tableElement) return null;
 
             const clonedTable = tableElement.cloneNode(true);
+            // 選單改用覆蓋標籤顯示，匯出時只留 select 的值，移除重複的標籤
+            clonedTable.querySelectorAll('.desc-select-wrap .desc-label').forEach(el => el.remove());
             const originalInputs = tableElement.querySelectorAll('input, select, textarea');
             const clonedInputs = clonedTable.querySelectorAll('input, select, textarea');
 
