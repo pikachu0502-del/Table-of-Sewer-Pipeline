@@ -3763,6 +3763,8 @@
 
             const KEEP = ['A-1', 'B-1', 'C-1', 'A-2'];
             const table = src.cloneNode(true);
+            // 移除從主資料表複製過來的篩選鈕（避免出現兩個箭頭）
+            table.querySelectorAll('.main-grade-filter-btn, .rpt-grade-filter-btn').forEach(b => b.remove());
 
             // cloneNode 不會複製以 .value 設定的即時值，逐一從來源複製回來
             const srcFields = src.querySelectorAll('input, select, textarea');
@@ -3852,11 +3854,11 @@
 
             // 在「評估分級A-C」表頭注入篩選按鈕
             const gradeTh = Array.from(table.querySelectorAll('thead th')).find(th => th.textContent.replace(/\s/g, '').includes('評估分級'));
-            if (gradeTh) {
+            if (gradeTh && !gradeTh.querySelector('.rpt-grade-filter-btn')) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.title = '篩選評估分級';
-                btn.className = 'ml-1 align-middle text-gray-500 hover:text-blue-600 leading-none';
+                btn.className = 'rpt-grade-filter-btn ml-1 align-middle text-gray-500 hover:text-blue-600 leading-none';
                 btn.style.fontSize = '13px';
                 btn.textContent = '▾';
                 btn.onclick = toggleReportFilter;
