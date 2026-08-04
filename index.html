@@ -656,6 +656,8 @@
         }
 
         function serializeAppData() {
+            // 篩選鈕、選單覆蓋標籤等 UI 附加元素不入存檔（改由載入時重建，避免序列化後事件失效或重複）
+            document.querySelectorAll('.project-panel .main-grade-filter-btn').forEach(b => b.remove());
             document.querySelectorAll('.project-panel input, .project-panel select, .project-panel textarea, .project-panel img').forEach(el => {
                 if (el.tagName === 'SELECT') {
                     Array.from(el.options).forEach(opt => {
@@ -3895,14 +3897,16 @@
             const table = panel.querySelector('table');
             if (!table) return;
             const th = Array.from(table.querySelectorAll('thead th')).find(t => t.textContent.replace(/\s/g, '').includes('評估分級A-C'));
-            if (!th || th.querySelector('.main-grade-filter-btn')) return;
+            if (!th) return;
+            // 舊存檔序列化的按鈕會遺失以 .onclick 綁定的事件，故一律移除重建、改用 inline onclick 屬性
+            th.querySelectorAll('.main-grade-filter-btn').forEach(b => b.remove());
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'main-grade-filter-btn ml-1 align-middle text-gray-400 hover:text-blue-600 leading-none';
             btn.style.fontSize = '13px';
             btn.title = '篩選評估分級';
             btn.textContent = '▾';
-            btn.onclick = toggleMainGradeFilter;
+            btn.setAttribute('onclick', 'toggleMainGradeFilter(event)');
             th.appendChild(btn);
         }
         function collectMainGrades(table) {
