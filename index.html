@@ -4003,6 +4003,18 @@
             return res;
         }
 
+        // 檢視管長 = 該管段所有起始人孔叢集的「檢視長度」總和（遇不同起始人孔須加總，而非只取第一段）
+        function getSegmentInspectLength(tbody) {
+            if (!tbody) return 0;
+            let sum = 0;
+            tbody.querySelectorAll('td.cluster-shared-td[data-cfield="length"]').forEach(td => {
+                const el = td.querySelector('input, select, textarea');
+                const v = parseFloat(el ? el.value : '');
+                if (isFinite(v)) sum += v;
+            });
+            return sum;
+        }
+
         // 取出某管段（tbody）的統計表基本資料
         function getSegmentInfoForHydraulic(tbody) {
             const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
@@ -4018,6 +4030,8 @@
                 else if (t === 'diameter') info.diameter = v;
                 else if (t === 'length') info.length = v;
             });
+            // 檢視長度合計此管段所有起始人孔叢集（不同起始人孔須加總）
+            info.length = getSegmentInspectLength(tbody);
             // L 改用總管長（若已由管線CSV帶入）
             const totalLen = segmentTotalLengths[activeProjectId]?.[tbody.dataset.groupId];
             if (totalLen !== undefined && totalLen !== null && totalLen !== '') info.length = totalLen;
@@ -4677,7 +4691,7 @@
                 const upstream = inputs[1]?.value || '';
                 const downstream = inputs[2]?.value || '';
                 const diameter = inputs[8]?.value || '';
-                const length = parseFloat(inputs[7]?.value) || 0;
+                const length = getSegmentInspectLength(mainRow.closest('tbody')) || 0;
                 const groupId = mainRow.dataset.groupId;
                 const totalLen = segmentTotalLengths[activeProjectId]?.[groupId] || 0;
                 
@@ -4916,7 +4930,7 @@
             rows.forEach(mainRow => {
                 const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const projectLabel = inputs[0]?.value || '未命名標別';
-                const segmentLength = parseFloat(inputs[7]?.value) || 0;
+                const segmentLength = getSegmentInspectLength(mainRow.closest('tbody')) || 0;
                 const diameter = parseFloat(inputs[8]?.value) || 0;
                 const groupId = mainRow.dataset.groupId;
                 const totalSegmentLength = segmentTotalLengths[activeProjectId]?.[groupId] || 0;
@@ -5047,7 +5061,7 @@
             rows.forEach(mainRow => {
                 const inputs = mainRow.querySelectorAll('input, select, textarea');
                 const projectLabel = inputs[0]?.value || '未命名標別';
-                const segmentLength = parseFloat(inputs[7]?.value) || 0;
+                const segmentLength = getSegmentInspectLength(mainRow.closest('tbody')) || 0;
                 const diameter = parseFloat(inputs[8]?.value) || 0;
 
                 if (!repairData[projectLabel]) {
