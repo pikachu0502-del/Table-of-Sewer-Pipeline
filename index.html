@@ -5176,6 +5176,13 @@
                 const payload = escAttr(JSON.stringify({ action, size: SIZE_LABELS[size] || size, items, total: parseFloat(val) || 0 }));
                 return `<td class="border border-gray-400 px-2 py-2 p-0${has ? ' cursor-help' : ''}"${has ? ` data-breakdown="${payload}" onmouseenter="showRepairBreakdown(this)" onmouseleave="hideRepairBreakdown()"` : ''}><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none ${colorCls} font-bold${has ? ' cursor-help' : ''}" value="${(parseFloat(val) || 0).toFixed(2)}" readonly></td>`;
             };
+            const repairSubCell = (val, colorCls, action, size, det) => {
+                const detail = (det && det[action] && det[action][size]) || {};
+                const items = Object.keys(detail).map(d => ({ d: parseFloat(d), len: detail[d] })).filter(x => x.len > 0).sort((a, b) => a.d - b.d);
+                const has = items.length > 0;
+                const payload = escAttr(JSON.stringify({ action, size: SIZE_LABELS[size] || size, items, total: parseFloat(val) || 0 }));
+                return `<td class="border border-gray-400 px-2 py-2 text-center ${colorCls}${has ? ' cursor-help' : ''}"${has ? ` data-breakdown="${payload}" onmouseenter="showRepairBreakdown(this)" onmouseleave="hideRepairBreakdown()"` : ''}>${(parseFloat(val) || 0).toFixed(2)}</td>`;
+            };
 
             let index = 1;
             let sums = [0,0,0, 0,0,0, 0,0,0];
@@ -5221,18 +5228,33 @@
                 `;
             });
 
+            // 小計列明細：跨所有標別合併同一處理分類×管徑級距的各管徑總管長
+            const sumDetail = {
+                "損害嚴重": { '150~300': {}, '300~700': {}, '700+': {} },
+                "編列預算": { '150~300': {}, '300~700': {}, '700+': {} },
+                "持續追蹤": { '150~300': {}, '300~700': {}, '700+': {} }
+            };
+            Object.keys(repairDetail).forEach(pl => {
+                ['損害嚴重', '編列預算', '持續追蹤'].forEach(a => {
+                    ['150~300', '300~700', '700+'].forEach(s => {
+                        const src = repairDetail[pl][a][s];
+                        Object.keys(src).forEach(d => { sumDetail[a][s][d] = (sumDetail[a][s][d] || 0) + src[d]; });
+                    });
+                });
+            });
+
             html += `
                         <tr class="bg-gray-100 font-bold text-center">
                             <td colspan="2" class="border border-gray-400 px-4 py-2 text-center text-gray-800">小計</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-red-600">${(sums[0] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-red-600">${(sums[1] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-red-600">${(sums[2] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-orange-500">${(sums[3] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-orange-500">${(sums[4] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-orange-500">${(sums[5] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-green-600">${(sums[6] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-green-600">${(sums[7] || 0).toFixed(2)}</td>
-                            <td class="border border-gray-400 px-2 py-2 text-center text-green-600">${(sums[8] || 0).toFixed(2)}</td>
+                            ${repairSubCell(sums[0], 'text-red-600', '損害嚴重', '150~300', sumDetail)}
+                            ${repairSubCell(sums[1], 'text-red-600', '損害嚴重', '300~700', sumDetail)}
+                            ${repairSubCell(sums[2], 'text-red-600', '損害嚴重', '700+', sumDetail)}
+                            ${repairSubCell(sums[3], 'text-orange-500', '編列預算', '150~300', sumDetail)}
+                            ${repairSubCell(sums[4], 'text-orange-500', '編列預算', '300~700', sumDetail)}
+                            ${repairSubCell(sums[5], 'text-orange-500', '編列預算', '700+', sumDetail)}
+                            ${repairSubCell(sums[6], 'text-green-600', '持續追蹤', '150~300', sumDetail)}
+                            ${repairSubCell(sums[7], 'text-green-600', '持續追蹤', '300~700', sumDetail)}
+                            ${repairSubCell(sums[8], 'text-green-600', '持續追蹤', '700+', sumDetail)}
                         </tr>
                         </tbody>
                     </table>
