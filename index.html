@@ -5051,8 +5051,44 @@
             showMessage('已匯出報表 (Excel)');
         }
 
+        // 提報修繕統計：滑鼠移到管徑級距儲格時，顯示該級距內各管徑的總管長明細
+        function showRepairBreakdown(el) {
+            let d;
+            try { d = JSON.parse(el.dataset.breakdown); } catch (e) { return; }
+            let pop = document.getElementById('repairBreakdownPopup');
+            if (!pop) {
+                pop = document.createElement('div');
+                pop.id = 'repairBreakdownPopup';
+                pop.className = 'fixed z-[200] bg-white border border-gray-300 rounded-lg shadow-xl text-sm text-gray-700 pointer-events-none';
+                pop.style.maxWidth = '280px';
+                document.body.appendChild(pop);
+            }
+            const rows = d.items && d.items.length
+                ? d.items.map(it => `<div class="flex justify-between gap-6 px-3 py-1"><span>管徑 ${it.d} mm</span><span class="font-semibold tabular-nums">${(it.len || 0).toFixed(2)} m</span></div>`).join('')
+                : '<div class="px-3 py-2 text-gray-400">無資料</div>';
+            pop.innerHTML = `<div class="px-3 py-2 border-b bg-gray-50 rounded-t-lg font-semibold text-gray-800">${d.action}｜${d.size}</div>${rows}<div class="flex justify-between gap-6 px-3 py-1.5 border-t bg-gray-50 rounded-b-lg"><span class="font-semibold">合計</span><span class="font-bold tabular-nums">${(d.total || 0).toFixed(2)} m</span></div>`;
+            pop.style.display = 'block';
+            pop.style.visibility = 'hidden';
+            pop.style.left = '0px';
+            pop.style.top = '0px';
+            const r = el.getBoundingClientRect();
+            const pw = pop.offsetWidth, ph = pop.offsetHeight;
+            let left = r.left + r.width / 2 - pw / 2;
+            let top = r.bottom + 8;
+            left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+            if (top + ph > window.innerHeight - 8) top = r.top - ph - 8;
+            pop.style.left = left + 'px';
+            pop.style.top = top + 'px';
+            pop.style.visibility = 'visible';
+        }
+        function hideRepairBreakdown() {
+            const pop = document.getElementById('repairBreakdownPopup');
+            if (pop) pop.style.display = 'none';
+        }
+
         function generateRepairSummaryTable() {
             const repairData = {};
+            const repairDetail = {};
             const panel = document.querySelector(`#panel-${activeProjectId}`);
             if (!panel) return;
 
@@ -5069,6 +5105,11 @@
                         "損害嚴重": { '150~300': 0, '300~700': 0, '700+': 0 },
                         "編列預算": { '150~300': 0, '300~700': 0, '700+': 0 },
                         "持續追蹤": { '150~300': 0, '300~700': 0, '700+': 0 }
+                    };
+                    repairDetail[projectLabel] = {
+                        "損害嚴重": { '150~300': {}, '300~700': {}, '700+': {} },
+                        "編列預算": { '150~300': {}, '300~700': {}, '700+': {} },
+                        "持續追蹤": { '150~300': {}, '300~700': {}, '700+': {} }
                     };
                 }
                 
@@ -5095,6 +5136,8 @@
 
                 if (sizeCategory && actionCategory) {
                     repairData[projectLabel][actionCategory][sizeCategory] += segmentLength;
+                    const bd = repairDetail[projectLabel][actionCategory][sizeCategory];
+                    bd[diameter] = (bd[diameter] || 0) + segmentLength;
                 }
             });
 
@@ -5124,11 +5167,22 @@
                         <tbody>
             `;
 
+            const SIZE_LABELS = { '150~300': '150≦管徑<300 mm', '300~700': '300≦管徑<700 mm', '700+': '700 mm≦管徑' };
+            const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const repairCell = (val, colorCls, action, size, det) => {
+                const detail = (det && det[action] && det[action][size]) || {};
+                const items = Object.keys(detail).map(d => ({ d: parseFloat(d), len: detail[d] })).filter(x => x.len > 0).sort((a, b) => a.d - b.d);
+                const has = items.length > 0;
+                const payload = escAttr(JSON.stringify({ action, size: SIZE_LABELS[size] || size, items, total: parseFloat(val) || 0 }));
+                return `<td class="border border-gray-400 px-2 py-2 p-0${has ? ' cursor-help' : ''}"${has ? ` data-breakdown="${payload}" onmouseenter="showRepairBreakdown(this)" onmouseleave="hideRepairBreakdown()"` : ''}><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none ${colorCls} font-bold${has ? ' cursor-help' : ''}" value="${(parseFloat(val) || 0).toFixed(2)}" readonly></td>`;
+            };
+
             let index = 1;
             let sums = [0,0,0, 0,0,0, 0,0,0];
 
             Object.keys(repairData).forEach(projectLabel => {
                 const data = repairData[projectLabel];
+                const det = repairDetail[projectLabel];
 
                 const val0 = data["損害嚴重"]['150~300'];
                 const val1 = data["損害嚴重"]['300~700'];
@@ -5154,15 +5208,15 @@
                     <tr class="hover:bg-gray-50 text-center">
                         <td class="border border-gray-400 px-2 py-2">${index++}</td>
                         <td class="border border-gray-400 px-4 py-2">${projectLabel}</td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-red-600 font-bold" value="${(parseFloat(val0) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-red-600 font-bold" value="${(parseFloat(val1) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-red-600 font-bold" value="${(parseFloat(val2) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-orange-500 font-bold" value="${(parseFloat(val3) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-orange-500 font-bold" value="${(parseFloat(val4) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-orange-500 font-bold" value="${(parseFloat(val5) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-green-600 font-bold" value="${(parseFloat(val6) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-green-600 font-bold" value="${(parseFloat(val7) || 0).toFixed(2)}" readonly></td>
-                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-gray-100 border-0 outline-none text-green-600 font-bold" value="${(parseFloat(val8) || 0).toFixed(2)}" readonly></td>
+                        ${repairCell(val0, 'text-red-600', '損害嚴重', '150~300', det)}
+                        ${repairCell(val1, 'text-red-600', '損害嚴重', '300~700', det)}
+                        ${repairCell(val2, 'text-red-600', '損害嚴重', '700+', det)}
+                        ${repairCell(val3, 'text-orange-500', '編列預算', '150~300', det)}
+                        ${repairCell(val4, 'text-orange-500', '編列預算', '300~700', det)}
+                        ${repairCell(val5, 'text-orange-500', '編列預算', '700+', det)}
+                        ${repairCell(val6, 'text-green-600', '持續追蹤', '150~300', det)}
+                        ${repairCell(val7, 'text-green-600', '持續追蹤', '300~700', det)}
+                        ${repairCell(val8, 'text-green-600', '持續追蹤', '700+', det)}
                     </tr>
                 `;
             });
