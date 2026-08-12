@@ -2052,6 +2052,8 @@
             autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
             ensureSegmentCheckboxes(panel);
             ensureDescWraps(panel);
+            // 舊存檔的表頭「處理建議」更名為「修繕管制」
+            panel.querySelectorAll('thead th').forEach(th => { if (th.textContent.trim() === '處理建議') th.textContent = '修繕管制'; });
             // 舊存檔的「處理建議」為 input，升級為可換行的 textarea
             panel.querySelectorAll('input.suggestion-input').forEach(inp => {
                 const ta = document.createElement('textarea');
@@ -2222,7 +2224,7 @@
                             <th rowspan="3" class="col-small text-center w-20">照片</th>
                             <th rowspan="3" class="col-small text-center">綜合權重</th>
                             <th rowspan="3" class="col-small text-center">評估分級A-C</th>
-                            <th rowspan="3" class="col-desc text-center">處理建議</th>
+                            <th rowspan="3" class="col-desc text-center">修繕管制</th>
                             <th rowspan="3" class="col-small w-16 text-center">操作</th>
                         </tr>
                         <tr>
