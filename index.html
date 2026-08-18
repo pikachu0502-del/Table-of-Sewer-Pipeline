@@ -5602,6 +5602,11 @@
                     const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
                     importParsed = parseAnomalySheet(rows);
                     if(!importParsed.segments.length){ showMessage('未在檔案中找到可匯入的異常資料', true); input.value=''; return; }
+                    const fileDups = findInFileDuplicateSegments(importParsed);
+                    if(fileDups.length){
+                        const lines = fileDups.map(g=>'　・'+g.key+'（編號 '+g.segNos.join('、')+'）').join('\n');
+                        alert('⚠ 匯入檔案內偵測到重複管段（上游~下游人孔相同）：\n'+lines+'\n\n請於預覽表確認，重複列已以橘紅底標示。');
+                    }
                     showImportPreview();
                 }catch(err){
                     console.error(err);
@@ -5758,13 +5763,33 @@
             return problems;
         }
 
+        // 偵測「匯入檔案內部」的重複管段（上游~下游人孔相同出現多次）
+        function findInFileDuplicateSegments(p){
+            const groups = {};
+            p.segments.forEach((s,si)=>{
+                if(!(s.seg.up||s.seg.down)) return;
+                const key = normManhole(s.seg.up)+'~'+normManhole(s.seg.down);
+                (groups[key] = groups[key] || []).push({ si, segNo: s.seg.segNo });
+            });
+            const dups = [];
+            Object.keys(groups).forEach(key=>{
+                const arr = groups[key];
+                if(arr.length>1){
+                    arr.forEach(x=>{ p.segments[x.si]._dupInFile = key; });
+                    dups.push({ key, segNos: arr.map(x=>x.segNo) });
+                }
+            });
+            return dups;
+        }
+
         function showImportPreview(){
             const p = importParsed;
             const modal = document.getElementById('importPreviewModal');
             const existing = getExistingSegmentIndex();
-            let seg=0, anomaly=0, warn=0, dup=0;
+            let seg=0, anomaly=0, warn=0, dup=0, dupFile=0;
             p.segments.forEach(s=>{
                 seg++;
+                if(s._dupInFile) dupFile++;
                 s.anomalies.forEach(a=>{ anomaly++; if(computeAnomalyProblems(a).length) warn++; });
                 const key = normManhole(s.seg.up)+'~'+normManhole(s.seg.down);
                 const ex = (s.seg.up||s.seg.down) ? existing[key] : null;
@@ -5789,6 +5814,7 @@
                 '共 <b>'+seg+'</b> 段管段、<b>'+anomaly+'</b> 筆異常。'+
                 (p.projectLabel ? '　標案名稱：<b class="text-slate-800">'+p.projectLabel+'</b>' : '　<span class="text-amber-700">未偵測到標案名稱（第4列「通報地點：」）</span>')+
                 (dup>0 ? '<span class="text-amber-700 font-semibold">　'+dup+' 段與現有資料重複</span>（<span class="bg-yellow-200 px-1 rounded">黃色</span>＝與現有不同的欄位；可於右側選擇「覆蓋現有／略過」）' : '')+
+                (dupFile>0 ? '<span class="text-rose-700 font-semibold">　⚠ 檔案內有 '+dupFile+' 段重複管段</span>（上游~下游人孔相同，以<span class="bg-rose-200 px-1 rounded">橘紅底</span>標示）' : '')+
                 (warn>0 ? '<span class="text-red-600 font-semibold">　'+warn+' 筆需注意</span>（紅色：異常項目未對應或程度分缺漏）' : (dup===0?'<span class="text-green-600 font-semibold">　全部可正常匯入</span>':''));
             const th=(t)=>'<th class="border border-gray-300 px-2 py-1 bg-gray-100 text-xs sticky top-0 whitespace-nowrap">'+t+'</th>';
             const typeOpts=(cur)=>{
@@ -5811,13 +5837,23 @@
                 const d = s._diff || {};
                 s.anomalies.forEach((a,ai)=>{
                     const bad = a.problems.length>0;
-                    const rowCls = bad ? 'bg-red-50' : (s._ex ? 'bg-amber-50/40' : 'bg-green-50');
+                    const rowCls = bad ? 'bg-red-50' : (s._dupInFile ? 'bg-rose-100' : (s._ex ? 'bg-amber-50/40' : 'bg-green-50'));
                     const first = ai===0;
                     const seg2=s.seg;
                     const segCell=(v,diff)=> first ? '<td class="border border-gray-300 px-2 py-1 align-top whitespace-nowrap '+(diff?'bg-yellow-200':'')+'" rowspan="'+n+'">'+(v==null?'':v)+'</td>' : '';
                     let statusCell='';
                     if(first){
-                        if(s._ex){
+                        if(s._dupInFile){
+                            statusCell='<td class="border border-gray-300 px-2 py-1 align-top" rowspan="'+n+'">'
+                                + '<div class="text-rose-700 font-bold mb-1">檔內重複</div>'
+                                + (s._ex
+                                    ? '<select onchange="importSetAction('+si+',this.value)" class="text-xs border rounded px-1 py-0.5 w-full">'
+                                        + '<option value="overwrite"'+(s.action==='overwrite'?' selected':'')+'>覆蓋現有</option>'
+                                        + '<option value="skip"'+(s.action==='skip'?' selected':'')+'>略過</option>'
+                                        + '</select>'
+                                    : '<div class="text-green-700 font-semibold">新增</div>')
+                                + '</td>';
+                        } else if(s._ex){
                             statusCell='<td class="border border-gray-300 px-2 py-1 align-top" rowspan="'+n+'">'
                                 + '<div class="text-amber-700 font-bold mb-1">重複</div>'
                                 + '<select onchange="importSetAction('+si+',this.value)" class="text-xs border rounded px-1 py-0.5 w-full">'
