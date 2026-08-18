@@ -188,6 +188,7 @@
                     <div class="flex gap-1.5">
                         <button onclick="showRepairSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計修繕</button>
                         <button onclick="showSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計異常</button>
+                        <button onclick="showDiameterStats()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計管徑</button>
                     </div>
                 </div>
                 <div class="w-px self-stretch bg-slate-200"></div>
@@ -476,6 +477,16 @@
     </div>
 
     <div id="scoreTooltip" class="fixed hidden bg-white border border-gray-300 shadow-xl rounded-lg p-4 z-50 w-80 pointer-events-none transition-opacity duration-200 text-sm">
+    </div>
+
+    <div id="diameterStatsModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden p-6" onclick="if(event.target===this)closeDiameterStats()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold text-gray-800">管徑統計</h2>
+                <button onclick="closeDiameterStats()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="diameterStatsBody" class="flex-1 overflow-auto px-6 py-4"></div>
+        </div>
     </div>
 
     <div id="importPreviewModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden p-6">
@@ -3729,6 +3740,63 @@
             document.getElementById('summaryHeader').classList.remove('hidden');
             document.getElementById('summaryWorkspace').classList.remove('hidden');
             generateSummaryTable();
+        }
+
+        // 統計目前專案各管徑的管段數量與檢視管長合計
+        function showDiameterStats() {
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            const body = document.getElementById('diameterStatsBody');
+            if (!panel) { body.innerHTML = '<div class="text-gray-400 text-center py-6">無資料</div>'; document.getElementById('diameterStatsModal').classList.remove('hidden'); return; }
+            const stats = {};
+            let totalCount = 0, totalLen = 0;
+            panel.querySelectorAll('tbody.segment-group').forEach(tb => {
+                const main = tb.querySelector('tr[data-segment-type="new"]');
+                if (!main) return;
+                let dia = '';
+                main.querySelectorAll(':scope > td').forEach(td => {
+                    if (classifyCoreCell(td) === 'diameter') {
+                        const el = td.querySelector('input, select, textarea');
+                        if (el) dia = el.value;
+                    }
+                });
+                const key = (dia === '' || isNaN(parseFloat(dia))) ? '未填' : String(Math.round(parseFloat(dia)));
+                const len = getSegmentInspectLength(tb);
+                if (!stats[key]) stats[key] = { count: 0, len: 0 };
+                stats[key].count++; stats[key].len += len;
+                totalCount++; totalLen += len;
+            });
+            const keys = Object.keys(stats).sort((a, b) => {
+                if (a === '未填') return 1; if (b === '未填') return -1;
+                return parseFloat(a) - parseFloat(b);
+            });
+            let rows = keys.map(k => `
+                <tr class="border-b">
+                    <td class="px-3 py-2 ${k === '未填' ? 'text-gray-400' : 'font-semibold text-gray-800'}">${k === '未填' ? '未填' : k + ' mm'}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">${stats[k].count}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">${stats[k].len.toFixed(2)}</td>
+                </tr>`).join('');
+            body.innerHTML = keys.length ? `
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b-2 border-gray-300 text-gray-500 text-xs">
+                            <th class="px-3 py-2 text-left font-semibold">管徑</th>
+                            <th class="px-3 py-2 text-right font-semibold">管段數量</th>
+                            <th class="px-3 py-2 text-right font-semibold">檢視管長 (m)</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-gray-300 bg-gray-50 font-bold text-gray-800">
+                            <td class="px-3 py-2">合計</td>
+                            <td class="px-3 py-2 text-right tabular-nums">${totalCount}</td>
+                            <td class="px-3 py-2 text-right tabular-nums">${totalLen.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>` : '<div class="text-gray-400 text-center py-6">此專案尚無管段資料</div>';
+            document.getElementById('diameterStatsModal').classList.remove('hidden');
+        }
+        function closeDiameterStats() {
+            document.getElementById('diameterStatsModal').classList.add('hidden');
         }
 
         function showReportDesignView() {
