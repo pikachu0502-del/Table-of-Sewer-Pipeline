@@ -189,6 +189,7 @@
                         <button onclick="showRepairSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計修繕</button>
                         <button onclick="showSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計異常</button>
                         <button onclick="showDiameterStats()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計管徑</button>
+                        <button onclick="checkCrossProjectDuplicates()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">檢查跨專案重複</button>
                     </div>
                 </div>
                 <div class="w-px self-stretch bg-slate-200"></div>
@@ -273,6 +274,9 @@
         <div id="reportDesignHeader" class="p-4 bg-white shadow flex justify-between items-center shrink-0 hidden">
             <h1 class="text-xl font-bold text-gray-800 pr-4 py-1 leading-normal">本次細部設計提報修繕管段相關資料</h1>
             <div class="space-x-2 shrink-0">
+                <button onclick="showReportGradeStats()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
+                    分級統計
+                </button>
                 <button onclick="exportReportDesignReport()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow transition duration-150 ease-in-out">
                     ↓ 匯出報表
                 </button>
@@ -3746,6 +3750,7 @@
         function showDiameterStats() {
             const panel = document.querySelector(`#panel-${activeProjectId}`);
             const body = document.getElementById('diameterStatsBody');
+            document.querySelector('#diameterStatsModal h2').textContent = '管徑統計';
             if (!panel) { body.innerHTML = '<div class="text-gray-400 text-center py-6">無資料</div>'; document.getElementById('diameterStatsModal').classList.remove('hidden'); return; }
             const byLabel = {};       // { 標別: { 管徑: len } }
             const labelOrder = [];    // 維持出現順序
@@ -3805,8 +3810,115 @@
                 </table>` : '<div class="text-gray-400 text-center py-6">此專案尚無管段資料</div>';
             document.getElementById('diameterStatsModal').classList.remove('hidden');
         }
+        // 提報修繕分級統計：統計 A-1／A-2／B-1／C-1 各分級的管段數量與對應段號
+        function showReportGradeStats() {
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            const body = document.getElementById('diameterStatsBody');
+            document.querySelector('#diameterStatsModal h2').textContent = '提報修繕分級統計';
+            const GRADES = ['A-1', 'A-2', 'B-1', 'C-1'];
+            const buckets = {}; GRADES.forEach(g => buckets[g] = []);
+            if (panel) {
+                panel.querySelectorAll('tbody.segment-group tr[data-segment-type="new"]').forEach(main => {
+                    const el = main.querySelector('.eval-grade-input');
+                    const grade = el ? (el.value || '').trim() : '';
+                    if (!buckets[grade]) return;
+                    const num = (main.querySelector('.row-number')?.textContent || '').trim();
+                    buckets[grade].push(num || '?');
+                });
+            }
+            const COLORS = { 'A-1': 'text-red-600 bg-red-50', 'A-2': 'text-orange-500 bg-orange-50', 'B-1': 'text-amber-600 bg-amber-50', 'C-1': 'text-sky-600 bg-sky-50' };
+            const rows = GRADES.map(g => `
+                <tr>
+                    <td class="border border-slate-300 px-3 py-2 text-center font-bold ${COLORS[g]}">${g}</td>
+                    <td class="border border-slate-300 px-3 py-2 text-center tabular-nums font-semibold">${buckets[g].length}</td>
+                    <td class="border border-slate-300 px-3 py-2 text-slate-700">${buckets[g].length ? buckets[g].join('、') : '<span class="text-gray-300">—</span>'}</td>
+                </tr>`).join('');
+            const total = GRADES.reduce((s, g) => s + buckets[g].length, 0);
+            body.innerHTML = `
+                <table class="w-full text-sm border-collapse">
+                    <thead><tr class="bg-slate-100 text-slate-700">
+                        <th class="border border-slate-300 px-3 py-2 w-20">分級</th>
+                        <th class="border border-slate-300 px-3 py-2 w-20">數量</th>
+                        <th class="border border-slate-300 px-3 py-2">對應段號</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot><tr class="bg-slate-100 font-bold text-slate-800">
+                        <td class="border border-slate-300 px-3 py-2 text-center">合計</td>
+                        <td class="border border-slate-300 px-3 py-2 text-center tabular-nums">${total}</td>
+                        <td class="border border-slate-300 px-3 py-2"></td>
+                    </tr></tfoot>
+                </table>`;
+            document.getElementById('diameterStatsModal').classList.remove('hidden');
+        }
+
         function closeDiameterStats() {
             document.getElementById('diameterStatsModal').classList.add('hidden');
+        }
+
+        // 檢查目前專案的管段是否與「其他專案」有重複（上游~下游人孔相同）
+        function checkCrossProjectDuplicates() {
+            const panel = document.querySelector(`#panel-${activeProjectId}`);
+            const body = document.getElementById('diameterStatsBody');
+            document.querySelector('#diameterStatsModal h2').textContent = '跨專案重複檢查';
+            if (!panel) { body.innerHTML = '<div class="text-gray-400 text-center py-6">無資料</div>'; document.getElementById('diameterStatsModal').classList.remove('hidden'); return; }
+
+            // 建立「其他專案」的人孔索引
+            const others = {};
+            document.querySelectorAll('#workspace > div[id^="panel-"]').forEach(p => {
+                const pid = p.id.replace('panel-', '');
+                if (String(pid) === String(activeProjectId)) return;
+                const pname = (projects.find(x => String(x.id) === String(pid)) || {}).name || '(未命名專案)';
+                p.querySelectorAll('tbody.segment-group tr[data-segment-type="new"]').forEach(main => {
+                    let up = '', down = '';
+                    main.querySelectorAll(':scope > td').forEach(td => {
+                        const t = classifyCoreCell(td); const el = td.querySelector('input, select, textarea');
+                        if (!el) return; if (t === 'up') up = el.value; else if (t === 'down') down = el.value;
+                    });
+                    if (!(up || down)) return;
+                    const key = normManhole(up) + '~' + normManhole(down);
+                    (others[key] = others[key] || []).push(pname);
+                });
+            });
+
+            const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const dups = [];
+            panel.querySelectorAll('tbody.segment-group tr[data-segment-type="new"]').forEach(main => {
+                let up = '', down = '', label = '';
+                main.querySelectorAll(':scope > td').forEach(td => {
+                    const t = classifyCoreCell(td); const el = td.querySelector('input, select, textarea');
+                    if (!el) return;
+                    if (t === 'up') up = el.value; else if (t === 'down') down = el.value; else if (t === 'field') label = el.value;
+                });
+                if (!(up || down)) return;
+                const key = normManhole(up) + '~' + normManhole(down);
+                if (others[key]) {
+                    const num = main.querySelector('.row-number')?.textContent || '';
+                    dups.push({ num, label: (label || '').trim() || '未命名標別', seg: (up || '?') + ' ~ ' + (down || '?'), projects: Array.from(new Set(others[key])) });
+                }
+            });
+
+            if (!dups.length) {
+                body.innerHTML = '<div class="flex flex-col items-center justify-center py-10 text-center"><div class="text-5xl mb-3">✓</div><div class="text-lg font-bold text-green-600">沒有重複</div><div class="text-sm text-gray-500 mt-1">此專案的管段皆未與其他專案重複。</div></div>';
+            } else {
+                const rows = dups.map(d => `<tr>
+                    <td class="border border-slate-300 px-3 py-2 text-center">${d.num}</td>
+                    <td class="border border-slate-300 px-3 py-2 whitespace-pre-line">${esc(d.label)}</td>
+                    <td class="border border-slate-300 px-3 py-2">${esc(d.seg)}</td>
+                    <td class="border border-slate-300 px-3 py-2 text-purple-700">${esc(d.projects.join('、'))}</td>
+                </tr>`).join('');
+                body.innerHTML = `
+                    <div class="mb-3 text-sm font-semibold text-rose-700">⚠ 發現 ${dups.length} 段與其他專案重複（上游~下游人孔相同）</div>
+                    <table class="w-full text-sm border-collapse">
+                        <thead><tr class="bg-slate-100 text-slate-700">
+                            <th class="border border-slate-300 px-3 py-2 w-12">段</th>
+                            <th class="border border-slate-300 px-3 py-2">工程標別</th>
+                            <th class="border border-slate-300 px-3 py-2">管段（上游~下游）</th>
+                            <th class="border border-slate-300 px-3 py-2">重複於專案</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            }
+            document.getElementById('diameterStatsModal').classList.remove('hidden');
         }
 
         function showReportDesignView() {
