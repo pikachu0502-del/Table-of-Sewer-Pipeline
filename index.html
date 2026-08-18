@@ -486,9 +486,16 @@
             </div>
             <div id="importSummary" class="px-6 py-3 text-sm bg-gray-50 border-b shrink-0 leading-relaxed"></div>
             <div id="importPreviewBody" class="flex-1 overflow-auto px-6 py-4"></div>
-            <div class="px-6 py-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
-                <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-lg">取消</button>
-                <button id="importConfirmBtn" onclick="confirmImport()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg">確認匯入</button>
+            <div class="px-6 py-4 border-t flex justify-between items-center gap-3 shrink-0 bg-gray-50">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="importBatchDelete('cross')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300">删除紫色（已存在專案）</button>
+                    <button onclick="importBatchDelete('file')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-300">删除橘紅（檔內重複）</button>
+                    <button onclick="importBatchDelete('bad')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-red-100 text-red-700 hover:bg-red-200 border border-red-300">删除紅色（需注意）</button>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-lg">取消</button>
+                    <button id="importConfirmBtn" onclick="confirmImport()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg">確認匯入</button>
+                </div>
             </div>
         </div>
     </div>
@@ -5962,6 +5969,33 @@
             a.score = value===''?'':parseInt(value,10);
             showImportPreview();
         }
+        // 批次删除預覽中符合條件的管段：mode = 'cross'（已存在專案）/ 'file'（檔內重複）/ 'bad'（有問題列）
+        function importBatchDelete(mode){
+            if(!importParsed) return;
+            findCrossProjectDuplicateSegments(importParsed);
+            let removedSeg=0, removedRow=0;
+            if(mode==='bad'){
+                importParsed.segments.forEach(s=>{
+                    const before = s.anomalies.length;
+                    s.anomalies = s.anomalies.filter(a=> computeAnomalyProblems(a).length===0);
+                    removedRow += before - s.anomalies.length;
+                });
+                const before = importParsed.segments.length;
+                importParsed.segments = importParsed.segments.filter(s=>s.anomalies.length>0);
+                removedSeg = before - importParsed.segments.length;
+                if(removedRow===0){ showMessage('沒有需注意（紅色）的列', true); return; }
+            } else {
+                const flag = mode==='cross' ? '_dupCrossProject' : '_dupInFile';
+                const before = importParsed.segments.length;
+                importParsed.segments = importParsed.segments.filter(s=>!s[flag]);
+                removedSeg = before - importParsed.segments.length;
+                if(removedSeg===0){ showMessage(mode==='cross'?'沒有紫色（已存在專案）的管段':'沒有橘紅（檔內重複）的管段', true); return; }
+            }
+            if(importParsed.segments.length===0){ closeImportPreview(); showMessage('已删除全部匯入資料'); return; }
+            showImportPreview();
+            showMessage('已删除 '+removedSeg+' 段管段'+(removedRow?('（'+removedRow+' 筆異常）'):''));
+        }
+
         function importDeleteRow(si, ai){
             const s = importParsed.segments[si];
             s.anomalies.splice(ai,1);
