@@ -3747,52 +3747,63 @@
             const panel = document.querySelector(`#panel-${activeProjectId}`);
             const body = document.getElementById('diameterStatsBody');
             if (!panel) { body.innerHTML = '<div class="text-gray-400 text-center py-6">無資料</div>'; document.getElementById('diameterStatsModal').classList.remove('hidden'); return; }
-            const stats = {};
+            const byLabel = {};       // { 標別: { 管徑: {count,len} } }
+            const labelOrder = [];    // 維持出現順序
             let totalCount = 0, totalLen = 0;
             panel.querySelectorAll('tbody.segment-group').forEach(tb => {
                 const main = tb.querySelector('tr[data-segment-type="new"]');
                 if (!main) return;
-                let dia = '';
+                let dia = '', label = '';
                 main.querySelectorAll(':scope > td').forEach(td => {
-                    if (classifyCoreCell(td) === 'diameter') {
-                        const el = td.querySelector('input, select, textarea');
-                        if (el) dia = el.value;
-                    }
+                    const t = classifyCoreCell(td);
+                    const el = td.querySelector('input, select, textarea');
+                    if (!el) return;
+                    if (t === 'diameter') dia = el.value;
+                    else if (t === 'field') label = el.value;
                 });
-                const key = (dia === '' || isNaN(parseFloat(dia))) ? '未填' : String(Math.round(parseFloat(dia)));
+                const lk = (label || '').trim() || '未命名標別';
+                const dk = (dia === '' || isNaN(parseFloat(dia))) ? '未填' : String(Math.round(parseFloat(dia)));
                 const len = getSegmentInspectLength(tb);
-                if (!stats[key]) stats[key] = { count: 0, len: 0 };
-                stats[key].count++; stats[key].len += len;
+                if (!byLabel[lk]) { byLabel[lk] = {}; labelOrder.push(lk); }
+                if (!byLabel[lk][dk]) byLabel[lk][dk] = { count: 0, len: 0 };
+                byLabel[lk][dk].count++; byLabel[lk][dk].len += len;
                 totalCount++; totalLen += len;
             });
-            const keys = Object.keys(stats).sort((a, b) => {
-                if (a === '未填') return 1; if (b === '未填') return -1;
-                return parseFloat(a) - parseFloat(b);
+            const sortDia = (a, b) => { if (a === '未填') return 1; if (b === '未填') return -1; return parseFloat(a) - parseFloat(b); };
+            let html = '';
+            labelOrder.sort().forEach(lk => {
+                const dias = Object.keys(byLabel[lk]).sort(sortDia);
+                let subC = 0, subL = 0;
+                const rows = dias.map(dk => {
+                    subC += byLabel[lk][dk].count; subL += byLabel[lk][dk].len;
+                    return `<tr class="border-b border-gray-100">
+                        <td class="px-3 py-1.5 ${dk === '未填' ? 'text-gray-400' : 'font-medium text-gray-800'}">${dk === '未填' ? '未填' : dk + ' mm'}</td>
+                        <td class="px-3 py-1.5 text-right tabular-nums">${byLabel[lk][dk].count}</td>
+                        <td class="px-3 py-1.5 text-right tabular-nums">${byLabel[lk][dk].len.toFixed(2)}</td>
+                    </tr>`;
+                }).join('');
+                html += `<div class="mb-5">
+                    <div class="text-sm font-bold text-slate-700 mb-1.5 pb-1 border-b-2 border-slate-300">${lk}</div>
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-gray-400 text-xs">
+                            <th class="px-3 py-1 text-left font-semibold">管徑</th>
+                            <th class="px-3 py-1 text-right font-semibold">管段數量</th>
+                            <th class="px-3 py-1 text-right font-semibold">檢視管長 (m)</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                        <tfoot><tr class="border-t border-gray-300 bg-gray-50 font-semibold text-gray-700">
+                            <td class="px-3 py-1.5">小計</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums">${subC}</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums">${subL.toFixed(2)}</td>
+                        </tr></tfoot>
+                    </table>
+                </div>`;
             });
-            let rows = keys.map(k => `
-                <tr class="border-b">
-                    <td class="px-3 py-2 ${k === '未填' ? 'text-gray-400' : 'font-semibold text-gray-800'}">${k === '未填' ? '未填' : k + ' mm'}</td>
-                    <td class="px-3 py-2 text-right tabular-nums">${stats[k].count}</td>
-                    <td class="px-3 py-2 text-right tabular-nums">${stats[k].len.toFixed(2)}</td>
-                </tr>`).join('');
-            body.innerHTML = keys.length ? `
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b-2 border-gray-300 text-gray-500 text-xs">
-                            <th class="px-3 py-2 text-left font-semibold">管徑</th>
-                            <th class="px-3 py-2 text-right font-semibold">管段數量</th>
-                            <th class="px-3 py-2 text-right font-semibold">檢視管長 (m)</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                    <tfoot>
-                        <tr class="border-t-2 border-gray-300 bg-gray-50 font-bold text-gray-800">
-                            <td class="px-3 py-2">合計</td>
-                            <td class="px-3 py-2 text-right tabular-nums">${totalCount}</td>
-                            <td class="px-3 py-2 text-right tabular-nums">${totalLen.toFixed(2)}</td>
-                        </tr>
-                    </tfoot>
-                </table>` : '<div class="text-gray-400 text-center py-6">此專案尚無管段資料</div>';
+            html += `<div class="mt-2 pt-3 border-t-2 border-gray-300 flex justify-between items-center text-gray-800 font-bold">
+                <span>總計</span>
+                <span class="tabular-nums">${totalCount} 段　/　${totalLen.toFixed(2)} m</span>
+            </div>`;
+            body.innerHTML = labelOrder.length ? html : '<div class="text-gray-400 text-center py-6">此專案尚無管段資料</div>';
             document.getElementById('diameterStatsModal').classList.remove('hidden');
         }
         function closeDiameterStats() {
