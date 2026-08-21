@@ -483,6 +483,28 @@
     <div id="scoreTooltip" class="fixed hidden bg-white border border-gray-300 shadow-xl rounded-lg p-4 z-50 w-80 pointer-events-none transition-opacity duration-200 text-sm">
     </div>
 
+    <div id="nodeEditorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[160] hidden p-6" onclick="if(event.target===this)closeNodeEditor()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="px-5 py-3 border-b flex justify-between items-center">
+                <h2 class="font-bold text-gray-800">編輯管節數</h2>
+                <button onclick="closeNodeEditor()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="px-5 py-4 space-y-3 text-sm">
+                <div id="nodeEditorInfo" class="text-gray-600 leading-relaxed"></div>
+                <label class="flex items-center gap-2 text-gray-700"><input id="nodeEditorUseAuto" type="checkbox" onchange="nodeEditorToggleAuto()"> 使用自動計算</label>
+                <div class="flex items-center gap-2">
+                    <label class="font-medium text-gray-700">管節數</label>
+                    <input id="nodeEditorInput" type="number" min="1" step="1" class="border rounded px-2 py-1 w-24 text-center">
+                    <span id="nodeEditorAuto" class="text-xs text-gray-400"></span>
+                </div>
+            </div>
+            <div class="px-5 py-3 border-t flex justify-end gap-2 bg-gray-50">
+                <button onclick="closeNodeEditor()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1.5 px-4 rounded">取消</button>
+                <button onclick="saveNodeEditor()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-4 rounded">套用</button>
+            </div>
+        </div>
+    </div>
+
     <div id="diameterStatsModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] hidden p-6" onclick="if(event.target===this)closeDiameterStats()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
@@ -2074,6 +2096,7 @@
             autoGrowCells(panel.querySelectorAll('textarea.cell-wrap'));
             ensureSegmentCheckboxes(panel);
             ensureDescWraps(panel);
+            ensureNodeEditButtons(panel);
             // 舊存檔的表頭「處理建議」更名為「修繕管制」
             panel.querySelectorAll('thead th').forEach(th => { if (th.textContent.trim() === '處理建議') th.textContent = '修繕管制'; });
             // 舊存檔的「處理建議」為 input，升級為可換行的 textarea
@@ -2643,6 +2666,12 @@
         }
 
         function pipeNodeCount(row) {
+            const ov = row && row.dataset ? parseInt(row.dataset.nodeOverride, 10) : NaN;
+            if (!isNaN(ov) && ov > 0) return ov;   // 手動指定的管節數優先
+            return computeAutoNodeCount(row);
+        }
+
+        function computeAutoNodeCount(row) {
             const startEl = row.querySelector('input[placeholder="起點"]');
             const endEl = row.querySelector('input[placeholder="終點"]');
             const s = parseFloat(startEl ? startEl.value : '');
@@ -3170,7 +3199,7 @@
                         <option value="3">3</option>
                     </select>
                 </td>
-                <td><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算"></td>
+                <td><div class="flex items-center justify-center gap-1"><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算" style="max-width:54px"><button type="button" class="node-edit-btn text-[11px] leading-none px-1.5 py-1 rounded bg-gray-100 hover:bg-gray-200 border border-gray-300" title="編輯管節數" onclick="openNodeEditor(this)">節</button></div></td>
                 <td>
                     <div class="flex flex-col items-center justify-center gap-1 min-w-[60px]">
                         <input type="file" accept="image/*" class="hidden photo-upload-input" onchange="handlePhotoUpload(this)">
@@ -3264,7 +3293,7 @@
                         <option value="3">3</option>
                     </select>
                 </td>
-                <td><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算"></td>
+                <td><div class="flex items-center justify-center gap-1"><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算" style="max-width:54px"><button type="button" class="node-edit-btn text-[11px] leading-none px-1.5 py-1 rounded bg-gray-100 hover:bg-gray-200 border border-gray-300" title="編輯管節數" onclick="openNodeEditor(this)">節</button></div></td>
                 <td>
                     <div class="flex flex-col items-center justify-center gap-1 min-w-[60px]">
                         <input type="file" accept="image/*" class="hidden photo-upload-input" onchange="handlePhotoUpload(this)">
@@ -3331,7 +3360,7 @@
                         <option value="3">3</option>
                     </select>
                 </td>
-                <td><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算"></td>
+                <td><div class="flex items-center justify-center gap-1"><input type="text" class="single-weight-input readonly-bg" readonly placeholder="自動計算" style="max-width:54px"><button type="button" class="node-edit-btn text-[11px] leading-none px-1.5 py-1 rounded bg-gray-100 hover:bg-gray-200 border border-gray-300" title="編輯管節數" onclick="openNodeEditor(this)">節</button></div></td>
                 <td>
                     <div class="flex flex-col items-center justify-center gap-1 min-w-[60px]">
                         <input type="file" accept="image/*" class="hidden photo-upload-input" onchange="handlePhotoUpload(this)">
@@ -3853,6 +3882,91 @@
 
         function closeDiameterStats() {
             document.getElementById('diameterStatsModal').classList.add('hidden');
+        }
+
+        // ── 管節數編輯：預設自動計算，可手動覆寫（存於該列 data-node-override，隨序列化保存）──
+        let nodeEditorRow = null;
+        function ensureNodeEditButtons(root) {
+            (root || document).querySelectorAll('tr.anomaly-row .single-weight-input').forEach(inp => {
+                const td = inp.closest('td');
+                if (!td || td.querySelector('.node-edit-btn')) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'flex items-center justify-center gap-1';
+                inp.style.maxWidth = '54px';
+                td.insertBefore(wrap, inp);
+                wrap.appendChild(inp);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'node-edit-btn text-[11px] leading-none px-1.5 py-1 rounded bg-gray-100 hover:bg-gray-200 border border-gray-300';
+                btn.title = '編輯管節數';
+                btn.setAttribute('onclick', 'openNodeEditor(this)');
+                btn.textContent = '節';
+                wrap.appendChild(btn);
+                const row = inp.closest('tr.anomaly-row');
+                if (row) markNodeButton(row);
+            });
+        }
+        function markNodeButton(row) {
+            const btn = row.querySelector('.node-edit-btn');
+            if (!btn) return;
+            const ov = parseInt(row.dataset.nodeOverride, 10);
+            if (!isNaN(ov) && ov > 0) {
+                btn.classList.add('bg-amber-200', 'border-amber-400', 'text-amber-800');
+                btn.classList.remove('bg-gray-100', 'border-gray-300');
+                btn.title = '手動管節數：' + ov + '（點擊編輯）';
+            } else {
+                btn.classList.remove('bg-amber-200', 'border-amber-400', 'text-amber-800');
+                btn.classList.add('bg-gray-100', 'border-gray-300');
+                btn.title = '編輯管節數';
+            }
+        }
+        function openNodeEditor(btn) {
+            const row = btn.closest('tr.anomaly-row');
+            if (!row) return;
+            nodeEditorRow = row;
+            const catEl = row.querySelector('.category-input');
+            const category = parseInt(catEl ? catEl.value : '', 10);
+            const isNode = NODE_BASED_CATEGORIES.indexOf(category) !== -1;
+            const auto = computeAutoNodeCount(row);
+            const material = segmentMaterial(row) || '?';
+            const info = document.getElementById('nodeEditorInfo');
+            info.innerHTML = isNode
+                ? '此列以「管節數」放大單一權重（管材 ' + material + '）。預設依起點／終點自動計算，可手動修改。'
+                : '<span class="text-amber-600">此異常分類不以管節數評估，管節數不影響單一權重。</span>';
+            const ov = parseInt(row.dataset.nodeOverride, 10);
+            const hasOv = !isNaN(ov) && ov > 0;
+            document.getElementById('nodeEditorAuto').textContent = '（自動：' + auto + '）';
+            const useAuto = document.getElementById('nodeEditorUseAuto');
+            useAuto.checked = !hasOv;
+            const input = document.getElementById('nodeEditorInput');
+            input.value = hasOv ? ov : auto;
+            input.disabled = !hasOv;
+            document.getElementById('nodeEditorModal').classList.remove('hidden');
+        }
+        function nodeEditorToggleAuto() {
+            const useAuto = document.getElementById('nodeEditorUseAuto').checked;
+            const input = document.getElementById('nodeEditorInput');
+            input.disabled = useAuto;
+            if (useAuto && nodeEditorRow) input.value = computeAutoNodeCount(nodeEditorRow);
+        }
+        function saveNodeEditor() {
+            if (!nodeEditorRow) return closeNodeEditor();
+            const useAuto = document.getElementById('nodeEditorUseAuto').checked;
+            if (useAuto) {
+                delete nodeEditorRow.dataset.nodeOverride;
+            } else {
+                const v = parseInt(document.getElementById('nodeEditorInput').value, 10);
+                if (isNaN(v) || v < 1) { showMessage('請輸入有效的管節數（≥1）', true); return; }
+                nodeEditorRow.dataset.nodeOverride = v;
+            }
+            if (nodeEditorRow.querySelector('.single-weight-input')) calculateSingleWeight(nodeEditorRow);
+            markNodeButton(nodeEditorRow);
+            closeNodeEditor();
+            showMessage('已更新管節數');
+        }
+        function closeNodeEditor() {
+            document.getElementById('nodeEditorModal').classList.add('hidden');
+            nodeEditorRow = null;
         }
 
         // 檢查目前專案的管段是否與「其他專案」有重複（上游~下游人孔相同）
