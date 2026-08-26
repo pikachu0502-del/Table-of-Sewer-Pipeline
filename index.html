@@ -113,7 +113,7 @@
 
         body.ui-locked input, body.ui-locked select, body.ui-locked textarea { pointer-events: none !important; background-color: #f1f5f9 !important; cursor: not-allowed; }
         body.ui-locked .segment-drag-handle, body.ui-locked .anomaly-drag-handle, body.ui-locked .btn-upload, body.ui-locked .btn-remove, body.ui-locked .project-drag-handle { pointer-events: none !important; opacity: .45; }
-        body.ui-locked button[onclick^="addSubRow"], body.ui-locked button[onclick^="addSegmentRow"], body.ui-locked button[onclick^="addSubRowDifferentStart"], body.ui-locked button[onclick^="triggerImportXlsm"], body.ui-locked button[onclick^="deleteRow"], body.ui-locked button[onclick^="createNewProject"], body.ui-locked button[onclick^="sortByProject"], body.ui-locked button[onclick^="budgetAdd"], body.ui-locked button[onclick^="budgetDelete"] { pointer-events: none !important; opacity: .4; }
+        body.ui-locked button.lockable, body.ui-locked button[onclick^="addSubRow"], body.ui-locked button[onclick^="addSegmentRow"], body.ui-locked button[onclick^="addSubRowDifferentStart"], body.ui-locked button[onclick^="triggerImportXlsm"], body.ui-locked button[onclick^="deleteRow"], body.ui-locked button[onclick^="createNewProject"], body.ui-locked button[onclick^="sortByProject"], body.ui-locked button[onclick^="budgetAdd"], body.ui-locked button[onclick^="budgetDelete"] { pointer-events: none !important; opacity: .4; }
 
         textarea.cell-wrap { width: 100%; border: 0; background: transparent; outline: none; resize: none; overflow: hidden; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; text-align: center; font: inherit; padding: 4px; line-height: 1.3; display: block; min-height: 1.9em; }
         textarea.cell-wrap:focus { background: #eff6ff; }
@@ -204,13 +204,24 @@
                 <div class="flex flex-col">
                     <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>編輯／匯出</span>
                     <div class="flex gap-1.5">
-                        <button onclick="addSubRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 同管段異常</button>
-                        <button onclick="addSubRowDifferentStart()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 不同起始人孔</button>
-                        <button onclick="openClusterAssign()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 分配起始人孔</button>
-                        <button onclick="addSegmentRow()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 管段</button>
-                        <button onclick="openMoveSegmentsModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇄ 管段操作（移動／刪除）</button>
-                        <button onclick="openManholeSortModal()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">⇅ 人孔連線排序（預覽）</button>
-                        <button onclick="recalcActiveProject()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↻ 重新計算</button>
+                        <div class="relative hdr-menu-wrap">
+                            <button onclick="toggleHdrMenu('menuAdd')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 新增 ▾</button>
+                            <div id="menuAdd" class="hdr-menu hidden absolute left-0 mt-1 w-48 bg-white border border-slate-200 rounded-md shadow-lg z-50 py-1">
+                                <button onclick="hdrMenuRun('addSegmentRow')" class="lockable block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">+ 管段</button>
+                                <button onclick="hdrMenuRun('addSubRow')" class="lockable block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">+ 同管段異常</button>
+                                <button onclick="hdrMenuRun('addSubRowDifferentStart')" class="lockable block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">+ 不同起始人孔</button>
+                            </div>
+                        </div>
+                        <div class="relative hdr-menu-wrap">
+                            <button onclick="toggleHdrMenu('menuSeg')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">管段工具 ▾</button>
+                            <div id="menuSeg" class="hdr-menu hidden absolute left-0 mt-1 w-52 bg-white border border-slate-200 rounded-md shadow-lg z-50 py-1">
+                                <button onclick="hdrMenuRun('openMoveSegmentsModal')" class="block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">⇄ 管段操作（移動／刪除）</button>
+                                <button onclick="hdrMenuRun('openClusterAssign')" class="block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">⇄ 分配起始人孔</button>
+                                <button onclick="hdrMenuRun('openManholeSortModal')" class="block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">⇅ 人孔連線排序（預覽）</button>
+                                <div class="my-1 border-t border-slate-100"></div>
+                                <button onclick="hdrMenuRun('recalcActiveProject')" class="block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">↻ 重新計算</button>
+                            </div>
+                        </div>
                         <button onclick="triggerImportXlsm()" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">↑ 匯入 xlsm</button>
                         <input type="file" id="importXlsmInput" accept=".xlsm,.xlsx" class="hidden" onchange="handleImportXlsm(this)">
                         <button onclick="exportData()" class="px-3.5 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-800 text-white hover:bg-slate-900">↓ 匯出 Excel</button>
@@ -525,9 +536,9 @@
             <div id="importPreviewBody" class="flex-1 overflow-auto px-6 py-4"></div>
             <div class="px-6 py-4 border-t flex justify-between items-center gap-3 shrink-0 bg-gray-50">
                 <div class="flex flex-wrap gap-2">
-                    <button onclick="importBatchDelete('cross')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300">删除紫色（已存在專案）</button>
-                    <button onclick="importBatchDelete('file')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-300">删除橘紅（檔內重複）</button>
-                    <button onclick="importBatchDelete('bad')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-red-100 text-red-700 hover:bg-red-200 border border-red-300">删除紅色（需注意）</button>
+                    <button onclick="importBatchDelete('cross')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-300">刪除紫色（已存在專案）</button>
+                    <button onclick="importBatchDelete('file')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-300">刪除橘紅（檔內重複）</button>
+                    <button onclick="importBatchDelete('bad')" class="text-xs font-semibold py-1.5 px-3 rounded-md bg-red-100 text-red-700 hover:bg-red-200 border border-red-300">刪除紅色（需注意）</button>
                 </div>
                 <div class="flex gap-3">
                     <button onclick="closeImportPreview()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-lg">取消</button>
@@ -2129,7 +2140,7 @@
                 cb.className = 'seg-move-cb';
                 cb.setAttribute('role', 'checkbox');
                 cb.setAttribute('aria-checked', 'false');
-                cb.title = '勾選以移動或删除此管段';
+                cb.title = '勾選以移動或刪除此管段';
                 cb.style.cssText = 'display:block;width:16px;height:16px;margin:4px auto 0;border:2px solid #6366f1;border-radius:3px;cursor:pointer;line-height:12px;text-align:center;font-size:12px;color:#4f46e5;user-select:none;';
                 cb.onclick = function () {
                     const on = this.getAttribute('aria-checked') !== 'true';
@@ -2196,7 +2207,7 @@
                 </div>
                 <div class="flex gap-2 mb-4">
                     <button class="mode-move flex-1 text-sm font-semibold py-2 rounded border-2 border-indigo-500 bg-indigo-50 text-indigo-700">跨專案移動</button>
-                    <button class="mode-del flex-1 text-sm font-semibold py-2 rounded border-2 border-gray-200 bg-white text-gray-500">删除管段</button>
+                    <button class="mode-del flex-1 text-sm font-semibold py-2 rounded border-2 border-gray-200 bg-white text-gray-500">刪除管段</button>
                 </div>
                 <div class="pane-move">
                     ${others.length ? `<p class="text-sm text-gray-600 mb-2">請選擇移動的目標專案：</p>
@@ -2205,7 +2216,7 @@
                     </div>` : '<p class="text-sm text-amber-600 py-2">沒有其他專案可移動。</p>'}
                 </div>
                 <div class="pane-del hidden">
-                    <p class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2.5">將永久删除以上 ${selected.length} 個管段（含其所有異常資料），此動作無法復原。</p>
+                    <p class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2.5">將永久刪除以上 ${selected.length} 個管段（含其所有異常資料），此動作無法復原。</p>
                 </div>
                 <div class="flex justify-end gap-2 mt-5">
                     <button class="mv-cancel text-sm px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">取消</button>
@@ -2225,7 +2236,7 @@
                 btnDel.className = 'mode-del flex-1 text-sm font-semibold py-2 rounded ' + (m === 'del' ? onDel : off);
                 box.querySelector('.pane-move').classList.toggle('hidden', m !== 'move');
                 box.querySelector('.pane-del').classList.toggle('hidden', m !== 'del');
-                confirmBtn.textContent = m === 'move' ? '移動' : '删除';
+                confirmBtn.textContent = m === 'move' ? '移動' : '刪除';
                 confirmBtn.className = 'mv-confirm text-sm px-4 py-2 rounded text-white ' + (m === 'move' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700');
             };
             btnMove.onclick = () => setMode('move');
@@ -2245,7 +2256,7 @@
             };
         }
 
-        // 删除已勾選的管段（連同其段資料）
+        // 刪除已勾選的管段（連同其段資料）
         function deleteSelectedSegments(tbodys) {
             const pid = activeProjectId;
             tbodys.forEach(tb => {
@@ -2258,7 +2269,7 @@
             });
             updateRowNumbers(document.querySelector(`#panel-${pid} table`));
             scheduleAutoSave();
-            showMessage('已删除 ' + tbodys.length + ' 個管段');
+            showMessage('已刪除 ' + tbodys.length + ' 個管段');
         }
 
         function moveSegmentsToProject(tbodys, targetId) {
@@ -3940,6 +3951,29 @@
                 </table>`;
             document.getElementById('diameterStatsModal').classList.remove('hidden');
         }
+
+        // 工具列下拉選單
+        function toggleHdrMenu(id) {
+            const m = document.getElementById(id);
+            const wasOpen = m && !m.classList.contains('hidden');
+            document.querySelectorAll('.hdr-menu').forEach(x => x.classList.add('hidden'));
+            if (m && !wasOpen) m.classList.remove('hidden');
+        }
+        function hdrMenuRun(fnName) {
+            document.querySelectorAll('.hdr-menu').forEach(x => x.classList.add('hidden'));
+            if (document.body.classList.contains('ui-locked') &&
+                ['addSegmentRow', 'addSubRow', 'addSubRowDifferentStart'].indexOf(fnName) !== -1) {
+                showMessage('目前為鎖定狀態，無法新增', true);
+                return;
+            }
+            const fn = window[fnName];
+            if (typeof fn === 'function') fn();
+        }
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest || !e.target.closest('.hdr-menu-wrap')) {
+                document.querySelectorAll('.hdr-menu').forEach(x => x.classList.add('hidden'));
+            }
+        });
 
         function closeDiameterStats() {
             document.getElementById('diameterStatsModal').classList.add('hidden');
@@ -6334,7 +6368,7 @@
             a.score = value===''?'':parseInt(value,10);
             showImportPreview();
         }
-        // 批次删除預覽中符合條件的管段：mode = 'cross'（已存在專案）/ 'file'（檔內重複）/ 'bad'（有問題列）
+        // 批次刪除預覽中符合條件的管段：mode = 'cross'（已存在專案）/ 'file'（檔內重複）/ 'bad'（有問題列）
         function importBatchDelete(mode){
             if(!importParsed) return;
             findCrossProjectDuplicateSegments(importParsed);
@@ -6356,9 +6390,9 @@
                 removedSeg = before - importParsed.segments.length;
                 if(removedSeg===0){ showMessage(mode==='cross'?'沒有紫色（已存在專案）的管段':'沒有橘紅（檔內重複）的管段', true); return; }
             }
-            if(importParsed.segments.length===0){ closeImportPreview(); showMessage('已删除全部匯入資料'); return; }
+            if(importParsed.segments.length===0){ closeImportPreview(); showMessage('已刪除全部匯入資料'); return; }
             showImportPreview();
-            showMessage('已删除 '+removedSeg+' 段管段'+(removedRow?('（'+removedRow+' 筆異常）'):''));
+            showMessage('已刪除 '+removedSeg+' 段管段'+(removedRow?('（'+removedRow+' 筆異常）'):''));
         }
 
         function importDeleteRow(si, ai){
