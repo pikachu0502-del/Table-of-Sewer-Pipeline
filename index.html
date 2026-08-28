@@ -364,16 +364,16 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between p-4 px-8 bg-white gap-2 mt-6 mb-8">
-                    <input type="text" id="diagram-segment-id" class="bg-[#1f618d] text-black placeholder-gray-400 font-bold py-4 px-3 text-lg leading-normal rounded flex-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="管段編號 (例: 3846-0474~3846-0475)" onchange="saveDiagramInput('segmentId', this.value)">
+                <div class="flex items-stretch justify-between p-4 px-8 bg-white gap-2 mt-6 mb-8">
+                    <textarea id="diagram-segment-id" rows="1" class="diagram-wrap-input bg-[#1f618d] text-black placeholder-gray-400 font-bold py-4 px-3 text-lg leading-normal rounded flex-1 text-center resize-none overflow-hidden break-words focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="管段編號 (例: 3846-0474~3846-0475)" oninput="autoGrowTextarea(this)" onchange="saveDiagramInput('segmentId', this.value)"></textarea>
                     
-                    <svg class="w-10 h-10 text-gray-300 shrink-0 mx-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"></path></svg>
+                    <svg class="w-10 h-10 text-gray-300 shrink-0 mx-2 self-center" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"></path></svg>
                     
-                    <input type="text" id="diagram-anomalies" class="bg-[#1f618d] text-black placeholder-gray-400 font-bold py-4 px-3 text-lg leading-normal rounded flex-[1.5] text-center focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="破損情形 (例: PVC裡襯剝離、破損龜裂、滲漏、淤積)" onchange="saveDiagramInput('anomalies', this.value)">
+                    <textarea id="diagram-anomalies" rows="1" class="diagram-wrap-input bg-[#1f618d] text-black placeholder-gray-400 font-bold py-4 px-3 text-lg leading-normal rounded flex-[1.5] text-center resize-none overflow-hidden break-words focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="破損情形 (例: PVC裡襯剝離、破損龜裂、滲漏、淤積)" oninput="autoGrowTextarea(this)" onchange="saveDiagramInput('anomalies', this.value)"></textarea>
                     
-                    <svg class="w-10 h-10 text-gray-300 shrink-0 mx-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"></path></svg>
+                    <svg class="w-10 h-10 text-gray-300 shrink-0 mx-2 self-center" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"></path></svg>
                     
-                    <input type="text" id="diagram-damage-grade" class="bg-[#1f618d] text-black placeholder-gray-400 font-bold py-4 px-3 text-lg leading-normal rounded flex-[0.8] text-center focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="損壞等級 (例: 損壞等級B-2)" onchange="saveDiagramInput('grade', this.value)">
+                    <textarea id="diagram-damage-grade" rows="1" class="diagram-wrap-input bg-[#1f618d] text-black placeholder-gray-400 font-bold py-4 px-3 text-lg leading-normal rounded flex-[0.8] text-center resize-none overflow-hidden break-words focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="損壞等級 (例: 損壞等級B-2)" oninput="autoGrowTextarea(this)" onchange="saveDiagramInput('grade', this.value)"></textarea>
                 </div>
 
                 <div class="grid grid-cols-2 gap-x-8 gap-y-12 p-8 pt-4 bg-white">
@@ -3794,6 +3794,7 @@
             document.getElementById('diagram-segment-id').value = state.segmentId || '';
             document.getElementById('diagram-anomalies').value = state.anomalies || '';
             document.getElementById('diagram-damage-grade').value = state.grade || '';
+            document.querySelectorAll('.diagram-wrap-input').forEach(autoGrowTextarea);
 
             for(let i=0; i<4; i++) {
                 const slot = document.getElementById(`diagram-photo-slot-${i}`);
@@ -5712,6 +5713,33 @@
                 nameTa.parentNode.insertBefore(nameDiv, nameTa.nextSibling);
             }
 
+            const wrapSwaps = [];
+            diagram.querySelectorAll('.diagram-wrap-input').forEach(ta => {
+                const cs = window.getComputedStyle(ta);
+                const d = document.createElement('div');
+                d.textContent = ta.value;
+                d.style.width = ta.offsetWidth + 'px';
+                d.style.minHeight = ta.offsetHeight + 'px';
+                d.style.boxSizing = 'border-box';
+                d.style.font = cs.font;
+                d.style.fontWeight = cs.fontWeight;
+                d.style.lineHeight = cs.lineHeight;
+                d.style.padding = cs.padding;
+                d.style.whiteSpace = 'pre-wrap';
+                d.style.wordBreak = 'break-word';
+                d.style.textAlign = 'center';
+                d.style.background = cs.backgroundColor;
+                d.style.borderRadius = cs.borderRadius;
+                d.style.border = 'none';
+                d.style.color = cs.color;
+                d.style.display = 'flex';
+                d.style.alignItems = 'center';
+                d.style.justifyContent = 'center';
+                ta.style.display = 'none';
+                ta.parentNode.insertBefore(d, ta.nextSibling);
+                wrapSwaps.push({ ta, d });
+            });
+
             const originalScrollTop = workspace.scrollTop;
             const originalScrollLeft = workspace.scrollLeft;
             workspace.scrollTop = 0;
@@ -5759,6 +5787,10 @@
                     nameTa.style.display = '';
                     if (nameDiv && nameDiv.parentNode) nameDiv.parentNode.removeChild(nameDiv);
                 }
+                wrapSwaps.forEach(({ ta, d }) => {
+                    ta.style.display = '';
+                    if (d && d.parentNode) d.parentNode.removeChild(d);
+                });
             }
         }
 
