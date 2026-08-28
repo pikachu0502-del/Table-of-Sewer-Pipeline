@@ -112,10 +112,16 @@
         }
 
         .diagram-wrap-input {
-            height: calc(2 * 1.5em + 1rem);
+            /* 固定兩列：明確指定 line-height，避免 Tailwind 行高差異；並含 padding 與 border */
+            line-height: 1.5;
+            height: calc(3em + 1rem + 2px);
             text-align: center;
             align-content: center;
             overflow-y: auto !important;
+        }
+        /* align-content 不支援時（舊瀏覽器）退回單列時的視覺置中 */
+        @supports not (align-content: center) {
+            .diagram-wrap-input { padding-top: calc(0.5rem + 0.75em); }
         }
         body.ui-locked input, body.ui-locked select, body.ui-locked textarea { pointer-events: none !important; background-color: #f1f5f9 !important; cursor: not-allowed; }
         body.ui-locked .segment-drag-handle, body.ui-locked .anomaly-drag-handle, body.ui-locked .btn-upload, body.ui-locked .btn-remove, body.ui-locked .project-drag-handle { pointer-events: none !important; opacity: .45; }
