@@ -2703,6 +2703,7 @@
             let severeWeight = 0;
             let moderateWeight = 0;
             let hasLevel1Condition = false;
+            let hasZeroScore = false;
             
             const targetCategories = ["破損龜裂", "接頭脫開", "變形", "下陷", "腐蝕沖蝕", "滲漏"];
             
@@ -2720,6 +2721,8 @@
                     if (score === 3) severeWeight += val;
                     if (score === 2) moderateWeight += val;
                 }
+
+                if (score === 0) hasZeroScore = true;
 
                 if (targetCategories.includes(category) && score === 3) {
                     hasLevel1Condition = true;
@@ -2740,7 +2743,11 @@
             let finalGrade = '';
             let suggestion = '';
 
-            if (baseGrade) {
+            if (!baseGrade && hasZeroScore) {
+                // 程度不給分（0 分）：單一／綜合權重皆為 0，視為無異常狀況
+                finalGrade = 'C-3';
+                suggestion = '無異常狀況';
+            } else if (baseGrade) {
                 const subClass = hasLevel1Condition ? '1' : '2';
                 finalGrade = `${baseGrade}-${subClass}`;
 
@@ -2823,7 +2830,10 @@
             const score = parseFloat(scoreInput.value);
             const category = parseInt(categoryInput ? categoryInput.value : '', 10);
 
-            if (!isNaN(weight) && !isNaN(score)) {
+            if (!isNaN(score) && score === 0) {
+                singleWeightInput.value = '0';
+                singleWeightInput.title = '程度未給分（0 分）：單一權重為 0';
+            } else if (!isNaN(weight) && !isNaN(score)) {
                 const base = weight * score;
                 if (NODE_BASED_CATEGORIES.indexOf(category) !== -1) {
                     const nodes = pipeNodeCount(row);
@@ -3318,6 +3328,7 @@
                 <td>
                     <select class="score-input" onfocus="showScoreTooltip(this)" onblur="hideScoreTooltip()" onchange="calculateSingleWeight(this.closest('tr'))">
                         <option value=""></option>
+                        <option value="0">0</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
@@ -3412,6 +3423,7 @@
                 <td>
                     <select class="score-input" onfocus="showScoreTooltip(this)" onblur="hideScoreTooltip()" onchange="calculateSingleWeight(this.closest('tr'))">
                         <option value=""></option>
+                        <option value="0">0</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
@@ -3479,6 +3491,7 @@
                 <td>
                     <select class="score-input" onfocus="showScoreTooltip(this)" onblur="hideScoreTooltip()" onchange="calculateSingleWeight(this.closest('tr'))">
                         <option value=""></option>
+                        <option value="0">0</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
@@ -5406,7 +5419,8 @@
                 let isAbnormal = false;
                 allGroupRows.forEach(row => {
                     const gradeInput = row.querySelector('.eval-grade-input');
-                    if (gradeInput && gradeInput.value.trim() !== '') {
+                    const gv = gradeInput ? gradeInput.value.trim() : '';
+                    if (gv !== '' && gv !== 'C-3') {
                         isAbnormal = true;
                     }
                 });
@@ -6508,7 +6522,7 @@
             const sel=row.querySelector('.anomaly-desc-select');
             if(sel && a.type){ sel.value=a.type; updateFields(sel); if(typeof syncDescLabel==='function') syncDescLabel(sel); }
             const sc=row.querySelector('.score-input');
-            if(sc && a.score!==''){ sc.value=String(a.score); calculateSingleWeight(row); }
+            if(sc && a.score!=='' && a.score!==null && a.score!==undefined){ sc.value=String(a.score); calculateSingleWeight(row); }
         }
 
         function confirmImport(){
