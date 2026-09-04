@@ -2160,6 +2160,7 @@
             ensureSegmentCheckboxes(panel);
             ensureDescWraps(panel);
             ensureNodeEditButtons(panel);
+            ensureScoreZeroOption(panel);
             // 舊存檔的表頭「處理建議」更名為「修繕管制」
             panel.querySelectorAll('thead th').forEach(th => { if (th.textContent.trim() === '處理建議') th.textContent = '修繕管制'; });
             // 舊存檔的「處理建議」為 input，升級為可換行的 textarea
@@ -3981,7 +3982,7 @@
             const panel = document.querySelector(`#panel-${activeProjectId}`);
             const body = document.getElementById('diameterStatsBody');
             document.querySelector('#diameterStatsModal h2').textContent = '提報修繕分級統計';
-            const GRADES = ['A-1', 'A-2', 'B-1', 'C-1'];
+            const GRADES = ['A-1', 'A-2', 'B-1', 'C-1', 'C-2', 'C-3'];
             const buckets = {}; GRADES.forEach(g => buckets[g] = []);
             if (panel) {
                 panel.querySelectorAll('tbody.segment-group tr[data-segment-type="new"]').forEach(main => {
@@ -4042,6 +4043,20 @@
 
         function closeDiameterStats() {
             document.getElementById('diameterStatsModal').classList.add('hidden');
+        }
+
+        // 舊存檔的程度分級下拉補上「0」選項（0 分 → 無異常狀況 / C-3）
+        function ensureScoreZeroOption(root) {
+            (root || document).querySelectorAll('select.score-input').forEach(sel => {
+                if (sel.querySelector('option[value="0"]')) return;
+                const opt = document.createElement('option');
+                opt.value = '0';
+                opt.textContent = '0';
+                const blank = sel.querySelector('option[value=""]');
+                if (blank && blank.nextSibling) sel.insertBefore(opt, blank.nextSibling);
+                else if (blank) sel.appendChild(opt);
+                else sel.insertBefore(opt, sel.firstChild);
+            });
         }
 
         // ── 管節數編輯：預設自動計算，可手動覆寫（存於該列 data-node-override，隨序列化保存）──
