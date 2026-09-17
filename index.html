@@ -2098,6 +2098,38 @@
             showMessage(`已建立專案：${name}`);
         }
 
+        function deleteProject(id) {
+            const p = projects.find(x => x.id === id);
+            if (!p) return;
+            if (!confirm(`確定要刪除專案「${p.name}」嗎？此動作將永久刪除該專案所有管段與異常資料，無法復原。`)) return;
+
+            const panel = document.querySelector(`#panel-${id}`);
+            if (panel) panel.remove();
+            projects = projects.filter(x => x.id !== id);
+            delete diagramData[id];
+            delete segmentTotalLengths[id];
+            delete projectInfoData[id];
+            delete normalLengthData[id];
+            delete abnormalLengthData[id];
+            delete repairLengthData[id];
+            delete repairAdviceData[id];
+            delete hydraulicData[id];
+
+            if (activeProjectId === id) {
+                activeProjectId = projects.length ? projects[0].id : null;
+            }
+
+            renderProjectList();
+            if (activeProjectId) {
+                switchProject(activeProjectId);
+            } else {
+                document.getElementById('projectList').innerHTML = '';
+            }
+            updateRowNumbers();
+            scheduleAutoSave();
+            showMessage(`已刪除專案「${p.name}」`);
+        }
+
         function renderProjectList() {
             const list = document.getElementById('projectList');
             list.innerHTML = '';
@@ -2124,9 +2156,19 @@
                     editProjectName(p.id);
                 };
 
+                const delBtn = document.createElement('button');
+                delBtn.className = 'text-gray-400 hover:text-red-400 ml-1 shrink-0';
+                delBtn.title = '刪除專案';
+                delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" /></svg>`;
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteProject(p.id);
+                };
+
                 li.appendChild(dragHandle);
                 li.appendChild(nameSpan);
                 li.appendChild(editBtn);
+                li.appendChild(delBtn);
                 list.appendChild(li);
             });
 
