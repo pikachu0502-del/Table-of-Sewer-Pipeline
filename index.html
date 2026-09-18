@@ -5395,6 +5395,7 @@
                                 <th class="border border-gray-400 px-4 py-2 text-center">工程期程(開/竣)</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">使用年限(通水齡)</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">總管長 (m)</th>
+                                <th class="border border-gray-400 px-4 py-2 text-center">行政區</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">工程地點</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">管渠施作工法</th>
                             </tr>
@@ -5406,7 +5407,7 @@
             let grandTotalLen = 0;
 
             uniqueProjects.forEach(projectName => {
-                const data = projectInfoData[activeProjectId][projectName] || { duration: '', age: '', location: '', method: '' };
+                const data = projectInfoData[activeProjectId][projectName] || { duration: '', age: '', district: '', location: '', method: '' };
                 const totalLen = projectTotalLengths[projectName] || 0;
                 grandTotalLen += totalLen;
 
@@ -5417,6 +5418,7 @@
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${data.duration}" onchange="updateProjectInfo(this, 'duration')"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${data.age}" onchange="updateProjectInfo(this, 'age')"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0 bg-gray-100 font-bold"><input type="number" step="0.01" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none" value="${(totalLen || 0).toFixed(2)}" readonly placeholder="自動加總"></td>
+                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${data.district || ''}" onchange="updateProjectInfo(this, 'district')"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${data.location}" onchange="updateProjectInfo(this, 'location')"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0">
                             <select class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" onchange="updateProjectInfo(this, 'method')">
