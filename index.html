@@ -3125,7 +3125,7 @@
 
         // 依每列的 startClusterId，把「起始人孔＋檢視日期/次第/路名/檢視長度」重建為多個連續叢集各自合併
         // （預設全部同一叢集＝維持原本整段合併；新增不同起始人孔後即形成新叢集，可各自填寫這些屬性）
-        function rebuildStartClusters(tbody) {
+        function rebuildStartClusters(tbody, clusterVals) {
             const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
             if (rows.length === 0) return;
 
@@ -3157,6 +3157,8 @@
 
                 // 各欄取該叢集第一個有值的列（欄位彼此獨立）
                 const pick = (field) => {
+                    const cv = clusterVals && clusterVals[cid];
+                    if (cv && cv[field] !== undefined) return cv[field];
                     for (let k = i; k <= j; k++) { const o = valByRow.get(rows[k]); if (o && o[field] !== undefined && o[field] !== '') return o[field]; }
                     for (let k = i; k <= j; k++) { const o = valByRow.get(rows[k]); if (o && o[field] !== undefined) return o[field]; }
                     return '';
@@ -3176,7 +3178,7 @@
             }
         }
 
-        function rebuildGroupRowspans(tbody) {
+        function rebuildGroupRowspans(tbody, clusterVals) {
             const rows = Array.from(tbody.querySelectorAll('tr.anomaly-row'));
             if (rows.length === 0) return;
 
@@ -3189,7 +3191,7 @@
             repairCoreCellOrder(oldMainRow);
 
             // 1) 先重建起始人孔叛集（狜立於其他共用欄）
-            rebuildStartClusters(tbody);
+            rebuildStartClusters(tbody, clusterVals);
 
             // 2) 確定共用欄來源（若主列換人則來自舊主列），再重新排列正確順序
             const coreSource = (rows[0] !== oldMainRow) ? oldMainRow : rows[0];
@@ -3275,15 +3277,43 @@
             });
         }
 
+        // 依起始人孔叢集 id 快照「起始人孔＋檢視日期/次第/路名/檢視長度」
+        let anomalyClusterSnapshot = null;
+        function getClusterSnapshot(tbody) {
+            const map = {};
+            if (!tbody) return map;
+            tbody.querySelectorAll('tr.anomaly-row').forEach(r => {
+                const cid = r.dataset.startClusterId || tbody.dataset.groupId;
+                const st = r.querySelector(':scope > td.start-manhole-td');
+                if (!st) return;
+                const o = map[cid] = map[cid] || {};
+                const si = st.querySelector('input, textarea'); o.start = si ? si.value : '';
+                r.querySelectorAll(':scope > td.cluster-shared-td').forEach(td => {
+                    const i = td.querySelector('input, textarea');
+                    if (td.dataset.cfield) o[td.dataset.cfield] = i ? i.value : '';
+                });
+            });
+            return map;
+        }
+        // 被拖曳的列改歸屬落點所在的起始人孔叢集（優先取上一列，置頂則取下一列），避免叢集被切斷而錯配
+        function adoptNeighborCluster(item, tbody) {
+            let n = item.previousElementSibling;
+            while (n && !n.matches('tr.anomaly-row')) n = n.previousElementSibling;
+            if (!n) { n = item.nextElementSibling; while (n && !n.matches('tr.anomaly-row')) n = n.nextElementSibling; }
+            if (n) item.dataset.startClusterId = n.dataset.startClusterId || tbody.dataset.groupId;
+        }
+
         function handleAnomalyDragStart(evt) {
             anomalyDragSnapshot = getSharedSnapshot(evt.from);
+            anomalyClusterSnapshot = getClusterSnapshot(evt.from);
         }
 
         function handleAnomalyDragEnd(evt) {
             const item = evt.item, from = evt.from, to = evt.to;
             const table = item.closest('table');
             if (from === to) {
-                rebuildGroupRowspans(to);
+                adoptNeighborCluster(item, to);
+                rebuildGroupRowspans(to, anomalyClusterSnapshot);
                 updateRowNumbers(table);
                 if (to.dataset.groupId) calculateGroupMetrics(to.dataset.groupId);
                 scheduleAutoSave();
@@ -3298,7 +3328,7 @@
             item.querySelectorAll(':scope > td.core-shared-td, :scope > td.cluster-shared-td, :scope > td.start-manhole-td, :scope > td.group-right-shared-td').forEach(td => td.remove());
             item.dataset.groupId = destGroupId;
             item.dataset.segmentType = 'sub';
-            item.dataset.startClusterId = generateId();
+            adoptNeighborCluster(item, to);
 
             // 先處理來源段（此時 destMain 仍完整，可當複製模板）
             const remain = from.querySelectorAll('tr.anomaly-row');
@@ -3311,7 +3341,7 @@
                     buildSharedCellsInto(firstRow, anomalyDragSnapshot || {}, destMain);
                     firstRow.dataset.segmentType = 'new';
                 }
-                rebuildGroupRowspans(from);
+                rebuildGroupRowspans(from, anomalyClusterSnapshot);
                 if (srcGroupId) calculateGroupMetrics(srcGroupId);
             }
 
