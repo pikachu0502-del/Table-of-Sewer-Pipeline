@@ -1796,21 +1796,17 @@
             });
 
             if (isMainTable) {
-                clonedTable.querySelectorAll('.photo-upload-input').forEach(input => {
-                    const container = input.closest('div.flex');
-                    if (container) {
-                        const img = container.querySelector('img');
-                        const hasPhoto = img && !img.classList.contains('hidden') && img.getAttribute('src');
-                        const textNode = document.createTextNode(hasPhoto ? '有照片' : '');
-                        container.parentNode.replaceChild(textNode, container);
-                    }
+                // 不匯出照片欄：移除含照片上傳元件的儲存格
+                clonedTable.querySelectorAll('.btn-upload').forEach(btn => {
+                    const td = btn.closest('td');
+                    if (td) td.remove();
                 });
 
                 const theadRows = clonedTable.querySelectorAll('thead tr');
                 if (theadRows.length > 0) {
                     Array.from(theadRows[0].cells).forEach(cell => {
                         const text = cell.innerText.trim();
-                        if (text === '段' || text === '操作') {
+                        if (text === '段' || text === '操作' || text === '照片') {
                             cell.remove();
                         }
                     });
@@ -2243,7 +2239,9 @@
             });
             (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
                 const numTd = mainRow.querySelector('.row-number');
-                if (!numTd || numTd.querySelector('.seg-move-cb')) return;
+                if (!numTd) return;
+                const existing = numTd.querySelector('.seg-move-cb');
+                if (existing) { existing.setAttribute('onclick', 'toggleSegCb(this)'); return; }
                 // 用 <span> 而非 <input>，避免被以「input,select,textarea」定位讀取的公式誤算為欄位
                 const cb = document.createElement('span');
                 cb.className = 'seg-move-cb';
@@ -2251,12 +2249,7 @@
                 cb.setAttribute('aria-checked', 'false');
                 cb.title = '勾選以移動或刪除此管段';
                 cb.style.cssText = 'display:block;width:16px;height:16px;margin:4px auto 0;border:2px solid #6366f1;border-radius:3px;cursor:pointer;line-height:12px;text-align:center;font-size:12px;color:#4f46e5;user-select:none;';
-                cb.onclick = function () {
-                    const on = this.getAttribute('aria-checked') !== 'true';
-                    this.setAttribute('aria-checked', on ? 'true' : 'false');
-                    this.textContent = on ? '✓' : '';
-                    this.style.background = on ? '#e0e7ff' : 'transparent';
-                };
+                cb.setAttribute('onclick', 'toggleSegCb(this)');
                 numTd.appendChild(cb);
             });
             (container || document).querySelectorAll('tbody.segment-group > tr[data-segment-type="new"]').forEach(mainRow => {
@@ -2270,6 +2263,13 @@
                 btn.onclick = (e) => { e.stopPropagation(); moveSegmentToTop(mainRow.closest('tbody.segment-group')); };
                 dragTd.appendChild(btn);
             });
+        }
+
+        function toggleSegCb(el) {
+            const on = el.getAttribute('aria-checked') !== 'true';
+            el.setAttribute('aria-checked', on ? 'true' : 'false');
+            el.textContent = on ? '✓' : '';
+            el.style.background = on ? '#e0e7ff' : 'transparent';
         }
 
         function moveSegmentToTop(tbody) {
@@ -2745,7 +2745,12 @@
                     const mainRow = tbody.querySelector('tr[data-segment-type="new"]');
                     if (mainRow) {
                         const rowNumCell = mainRow.querySelector('.row-number');
-                        if (rowNumCell) rowNumCell.textContent = currentId;
+                        if (rowNumCell) {
+                            // 保留勾選框，只更新編號文字
+                            const cb = rowNumCell.querySelector('.seg-move-cb');
+                            rowNumCell.textContent = currentId;
+                            if (cb) rowNumCell.appendChild(cb);
+                        }
                     }
                     currentId++;
                 });
