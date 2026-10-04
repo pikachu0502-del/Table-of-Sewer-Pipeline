@@ -678,6 +678,7 @@
             const row = e.target.closest('tr.anomaly-row');
             if (row) {
                 lastActiveGroupId = row.dataset.groupId;
+                lastActiveRow = row;
             }
         });
 
@@ -685,8 +686,21 @@
             const row = e.target.closest('tr.anomaly-row');
             if (row) {
                 lastActiveGroupId = row.dataset.groupId;
+                lastActiveRow = row;
             }
         });
+
+        let lastActiveRow = null;
+        // 取得最後點選且仍在指定 tbody 內的列（批次匯入時不使用，維持附加到最後）
+        function getActiveRowIn(tbody) {
+            if (window.__bulkImport || !lastActiveRow || !lastActiveRow.isConnected) return null;
+            return lastActiveRow.closest('tbody') === tbody ? lastActiveRow : null;
+        }
+        function getActiveTbodyIn(table) {
+            if (window.__bulkImport || !lastActiveRow || !lastActiveRow.isConnected) return null;
+            const tb = lastActiveRow.closest('tbody.segment-group');
+            return tb && tb.parentNode === table ? tb : null;
+        }
 
         function generateId() {
             return 'id_' + Math.random().toString(36).substring(2, 9);
@@ -3435,7 +3449,8 @@
             newRow.insertBefore(startTd, newRow.children[5]);
             
             newTbody.appendChild(newRow);
-            table.appendChild(newTbody);
+            const activeTb = getActiveTbodyIn(table);
+            if (activeTb) activeTb.after(newTbody); else table.appendChild(newTbody);
             wrapCoreCells(newTbody);
 
             new Sortable(newTbody, {
@@ -3483,7 +3498,8 @@
             newRow.dataset.segmentType = 'sub';
             newRow.dataset.groupId = groupId;
             // 繼承目前管段最後一列的起始人孔叛集，與這一叛集合併
-            const lastRow = tbody.querySelector('tr.anomaly-row:last-of-type');
+            const activeRow = getActiveRowIn(tbody);
+            const lastRow = activeRow || tbody.querySelector('tr.anomaly-row:last-of-type');
             newRow.dataset.startClusterId = (lastRow ? lastRow.dataset.startClusterId : null) || groupId;
             
             newRow.innerHTML = `
@@ -3517,7 +3533,8 @@
                 </td>
             `;
             
-            tbody.appendChild(newRow);
+            if (activeRow) activeRow.after(newRow); else tbody.appendChild(newRow);
+            if (!window.__bulkImport) lastActiveRow = newRow;
             rebuildGroupRowspans(tbody);
             
             if(!window.__bulkImport) newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -3553,6 +3570,13 @@
             newRow.dataset.segmentType = 'sub';
             newRow.dataset.groupId = groupId;
             newRow.dataset.startClusterId = generateId(); // 新叛集，與現有行分開
+            // 插在點選列所屬叢集的最後一列之後，避免切斷原叢集
+            let insertAfterRow = getActiveRowIn(tbody);
+            if (insertAfterRow) {
+                const cid = insertAfterRow.dataset.startClusterId;
+                let n = insertAfterRow.nextElementSibling;
+                while (n && n.matches('tr.anomaly-row') && n.dataset.startClusterId === cid) { insertAfterRow = n; n = n.nextElementSibling; }
+            }
 
             newRow.innerHTML = `
                 <td><input type="text" placeholder="起點"></td>
@@ -3585,7 +3609,8 @@
                 </td>
             `;
 
-            tbody.appendChild(newRow);
+            if (insertAfterRow) insertAfterRow.after(newRow); else tbody.appendChild(newRow);
+            if (!window.__bulkImport) lastActiveRow = newRow;
             rebuildGroupRowspans(tbody);
 
             newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
