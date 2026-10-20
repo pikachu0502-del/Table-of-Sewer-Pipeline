@@ -483,9 +483,9 @@
     </div>
 
     <div id="projectStatsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-[100] p-4">
-        <div class="bg-white rounded-lg p-6 w-3/4 max-w-4xl max-h-[90vh] flex flex-col shadow-xl">
-            <div class="flex justify-between items-center mb-4 border-b pb-2">
-                <h3 class="text-xl font-bold text-gray-800">專案檢視長度統計</h3>
+        <div id="projectStatsBox" class="bg-white rounded-lg p-6 w-3/4 max-w-4xl max-h-[90vh] flex flex-col shadow-xl">
+            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                <h3 id="projectStatsTitle" class="text-xl font-bold text-gray-800">專案檢視長度統計</h3>
                 <div class="flex items-center space-x-4">
                     <button onclick="exportProjectStatsReport()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded shadow transition duration-150 text-sm">
                         ↓ 匯出表單
@@ -493,8 +493,17 @@
                     <button onclick="closeProjectStatsModal()" class="text-gray-500 hover:text-red-500 text-2xl font-bold transition duration-150">&times;</button>
                 </div>
             </div>
+            <div class="flex gap-1 mb-3">
+                <button id="statsTabLen" onclick="switchStatsTab('len')" class="px-3 py-1.5 text-sm font-medium rounded-md bg-gray-800 text-white">專案檢視長度統計</button>
+                <button id="statsTabAnom" onclick="switchStatsTab('anom')" class="px-3 py-1.5 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">異常狀況數量統計表</button>
+                <button id="statsTabGrade" onclick="switchStatsTab('grade')" class="px-3 py-1.5 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">管段損壞程度統計表</button>
+            </div>
             <div class="overflow-auto flex-1">
                 <table class="w-full border-collapse border border-gray-400 text-center text-sm" id="projectStatsTable">
+                </table>
+                <table class="w-full border-collapse border border-gray-400 text-center text-sm hidden" id="anomalyCountTable">
+                </table>
+                <table class="w-full border-collapse border border-gray-400 text-center text-sm hidden" id="gradeDamageTable">
                 </table>
             </div>
             <div class="mt-4 flex justify-end">
@@ -2062,6 +2071,8 @@
             if (cb.checked) delete projectStatsExcluded[pid];
             else projectStatsExcluded[pid] = true;
             generateProjectStatsTableSilently();
+            generateAnomalyCountTable();
+            generateGradeDamageTable();
         }
 
         function toggleAllProjectStats(cb) {
@@ -2072,8 +2083,94 @@
             generateProjectStatsTableSilently();
         }
 
+        // ===== 異常狀況數量統計表：各專案各異常分類處數；下陷、腐蝕沖蝕以 |異常終點−異常起點| 計米數 =====
+        const ANOM_LENGTH_CATS = ['下陷', '腐蝕沖蝕'];
+        let statsTab = 'len';
+        function generateAnomalyCountTable() {
+            const cats = Object.keys(categoryMap);
+            const th = 'border border-gray-400 px-2 py-1 text-center';
+            let html = '<thead><tr class="bg-gray-100"><th rowspan="2" class="' + th + '">專案列表</th>'
+                + cats.map(c => '<th class="' + th + '">' + c + '</th>').join('') + '</tr><tr class="bg-gray-50">'
+                + cats.map(c => '<th class="' + th + ' text-xs font-normal">' + (ANOM_LENGTH_CATS.includes(c) ? '(m)' : '(處)') + '</th>').join('')
+                + '</tr></thead><tbody>';
+            const tot = {}; cats.forEach(c => tot[c] = 0);
+            let hasData = false;
+            const fmt = (c, v) => ANOM_LENGTH_CATS.includes(c) ? v.toFixed(2) : String(v);
+            projects.forEach(project => {
+                if (projectStatsExcluded[project.id]) return;
+                const panel = document.querySelector('#panel-' + project.id);
+                const cnt = {}; cats.forEach(c => cnt[c] = 0);
+                if (panel) panel.querySelectorAll('tbody.segment-group tr.anomaly-row').forEach(row => {
+                    const cat = row.querySelector('.anomaly-desc-select')?.value;
+                    if (!cat || !(cat in cnt)) return;
+                    if (ANOM_LENGTH_CATS.includes(cat)) {
+                        const s = parseFloat(row.querySelector('input[placeholder="起點"]')?.value);
+                        const e = parseFloat(row.querySelector('input[placeholder="終點"]')?.value);
+                        if (!isNaN(s) && !isNaN(e)) cnt[cat] += Math.abs(e - s);
+                    } else cnt[cat] += 1;
+                });
+                cats.forEach(c => tot[c] += cnt[c]);
+                html += '<tr class="hover:bg-gray-50"><td class="border border-gray-400 px-3 py-2 font-medium text-gray-700">' + project.name + '</td>'
+                    + cats.map(c => '<td class="border border-gray-400 px-2 py-2">' + fmt(c, cnt[c]) + '</td>').join('') + '</tr>';
+                hasData = true;
+            });
+            if (!hasData) html += '<tr><td colspan="' + (cats.length + 1) + '" class="border border-gray-400 px-4 py-4 text-gray-500">尚無專案資料</td></tr>';
+            else html += '<tr class="bg-gray-100 font-bold"><td class="border border-gray-400 px-3 py-2 text-gray-800">小計</td>'
+                + cats.map(c => '<td class="border border-gray-400 px-2 py-2 text-blue-700">' + fmt(c, tot[c]) + '</td>').join('') + '</tr>';
+            html += '</tbody>';
+            document.getElementById('anomalyCountTable').innerHTML = html;
+        }
+        // ===== 管段損壞程度統計表：各專案各分級的損壞數量(m，管段檢視長度)與段數 =====
+        const DAMAGE_GRADES = ['A-1', 'A-2', 'B-1', 'B-2', 'C-1', 'C-2', 'C-3'];
+        function generateGradeDamageTable() {
+            const th = 'border border-gray-400 px-2 py-1 text-center';
+            let html = '<thead><tr class="bg-gray-100"><th rowspan="2" class="' + th + '">專案列表</th>'
+                + DAMAGE_GRADES.map(g => '<th colspan="2" class="' + th + '">' + (g === 'C-3' ? 'C-3(無異常)' : g) + '</th>').join('')
+                + '</tr><tr class="bg-gray-50">'
+                + DAMAGE_GRADES.map(() => '<th class="' + th + ' text-xs font-normal">損壞數量(m)</th><th class="' + th + ' text-xs font-normal">損壞段數(段)</th>').join('')
+                + '</tr></thead><tbody>';
+            const totM = {}, totN = {}; DAMAGE_GRADES.forEach(g => { totM[g] = 0; totN[g] = 0; });
+            let hasData = false;
+            projects.forEach(project => {
+                if (projectStatsExcluded[project.id]) return;
+                const panel = document.querySelector('#panel-' + project.id);
+                const m = {}, n = {}; DAMAGE_GRADES.forEach(g => { m[g] = 0; n[g] = 0; });
+                if (panel) panel.querySelectorAll('tbody.segment-group tr[data-segment-type="new"]').forEach(main => {
+                    const g = (main.querySelector('.eval-grade-input')?.value || '').trim();
+                    if (!(g in m)) return;
+                    n[g] += 1;
+                    m[g] += parseFloat(segmentTotalLengths[project.id]?.[main.dataset.groupId]) || 0;
+                });
+                DAMAGE_GRADES.forEach(g => { totM[g] += m[g]; totN[g] += n[g]; });
+                html += '<tr class="hover:bg-gray-50"><td class="border border-gray-400 px-3 py-2 font-medium text-gray-700">' + project.name + '</td>'
+                    + DAMAGE_GRADES.map(g => '<td class="border border-gray-400 px-2 py-2">' + m[g].toFixed(2) + '</td><td class="border border-gray-400 px-2 py-2">' + n[g] + '</td>').join('') + '</tr>';
+                hasData = true;
+            });
+            if (!hasData) html += '<tr><td colspan="' + (DAMAGE_GRADES.length * 2 + 1) + '" class="border border-gray-400 px-4 py-4 text-gray-500">尚無專案資料</td></tr>';
+            else html += '<tr class="bg-gray-100 font-bold"><td class="border border-gray-400 px-3 py-2 text-gray-800">小計</td>'
+                + DAMAGE_GRADES.map(g => '<td class="border border-gray-400 px-2 py-2 text-blue-700">' + totM[g].toFixed(2) + '</td><td class="border border-gray-400 px-2 py-2 text-blue-700">' + totN[g] + '</td>').join('') + '</tr>';
+            html += '</tbody>';
+            document.getElementById('gradeDamageTable').innerHTML = html;
+        }
+        const STATS_TABS = { len: ['projectStatsTable', 'statsTabLen', '專案檢視長度統計'], anom: ['anomalyCountTable', 'statsTabAnom', '異常狀況數量統計表'], grade: ['gradeDamageTable', 'statsTabGrade', '管段損壞程度統計表'] };
+        function switchStatsTab(tab) {
+            statsTab = tab;
+            const isLen = tab === 'len';
+            Object.keys(STATS_TABS).forEach(k => document.getElementById(STATS_TABS[k][0]).classList.toggle('hidden', k !== tab));
+            document.getElementById('projectStatsTitle').textContent = STATS_TABS[tab][2];
+            const box = document.getElementById('projectStatsBox');
+            box.classList.toggle('max-w-4xl', isLen); box.classList.toggle('max-w-7xl', !isLen); box.classList.toggle('w-3/4', isLen); box.classList.toggle('w-[95vw]', !isLen);
+            const on = 'px-3 py-1.5 text-sm font-medium rounded-md bg-gray-800 text-white';
+            const off = 'px-3 py-1.5 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200';
+            Object.keys(STATS_TABS).forEach(k => document.getElementById(STATS_TABS[k][1]).className = k === tab ? on : off);
+            if (tab === 'anom') generateAnomalyCountTable();
+            if (tab === 'grade') generateGradeDamageTable();
+        }
+
         function showProjectStatsModal() {
             generateProjectStatsTableSilently();
+            if (statsTab === 'anom') generateAnomalyCountTable();
+            if (statsTab === 'grade') generateGradeDamageTable();
             document.getElementById('projectStatsModal').classList.remove('hidden');
         }
 
@@ -2082,6 +2179,18 @@
         }
 
         function exportProjectStatsReport() {
+            if (statsTab === 'grade') {
+                generateGradeDamageTable();
+                exportToExcel(document.getElementById('gradeDamageTable').cloneNode(true), '管段損壞程度統計表');
+                showMessage('已匯出管段損壞程度統計表 (Excel)');
+                return;
+            }
+            if (statsTab === 'anom') {
+                generateAnomalyCountTable();
+                exportToExcel(document.getElementById('anomalyCountTable').cloneNode(true), '異常狀況數量統計表');
+                showMessage('已匯出異常狀況數量統計表 (Excel)');
+                return;
+            }
             const table = statsTableForExport();
             exportToExcel(table, '專案檢視長度統計');
             showMessage('已匯出專案統計表單 (Excel)');
