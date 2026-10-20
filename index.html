@@ -1917,7 +1917,7 @@
                 XLSX.utils.book_append_sheet(wb, createSheetFromTable(mainTable, true), "檢視異常統計");
             }
 
-            const segmentTable = document.getElementById('segmentDataTableData');
+            const segmentTable = segmentTableForExport();
             if (segmentTable) {
                 XLSX.utils.book_append_sheet(wb, createSheetFromTable(segmentTable, false), "管段資料");
             }
@@ -4744,6 +4744,26 @@
             return info;
         }
 
+        // 管線坡度（水理與檢視管段資料共用）：|U−D| / L；U、D 空白、0 或 "-" 視為無數據
+        function calcPipeSlope(Uraw, Draw, L) {
+            const su = Uraw === undefined || Uraw === null ? '' : String(Uraw).trim();
+            const sd = Draw === undefined || Draw === null ? '' : String(Draw).trim();
+            const U = parseFloat(su), D = parseFloat(sd); L = parseFloat(L);
+            if (su === '-' || sd === '-' || !isFinite(U) || !isFinite(D) || U === 0 || D === 0) return { noData: true, i: NaN };
+            return { noData: false, i: (isFinite(L) && L !== 0) ? Math.abs(U - D) / L : NaN };
+        }
+        function slopeText(gid) {
+            const tb = document.querySelector('#panel-' + activeProjectId + ' tbody[data-group-id="' + gid + '"]');
+            const info = tb ? getSegmentInfoForHydraulic(tb) : null;
+            const hd = (hydraulicData[activeProjectId] || {})[gid] || {};
+            const r = calcPipeSlope(hd.U, hd.D, info ? info.length : NaN);
+            return r.noData ? '無數據' : (isFinite(r.i) ? (r.i * 1000).toFixed(2) : '');
+        }
+        function refreshSegSlope(gid) {
+            const cell = document.getElementById('seg-slope-' + gid);
+            if (cell) cell.textContent = slopeText(gid);
+        }
+
         // 計算單一管段水理，回傳所有欄位數值
         function computeHydraulic(seg, saved) {
             const C = parseFloat(seg.diameter);
@@ -4763,8 +4783,8 @@
                 r.noData = true;
                 return r;
             }
-            let iVal = NaN;
-            if (isFinite(U) && isFinite(D) && isFinite(L) && L !== 0) { iVal = Math.abs(U - D) / L; r.i = iVal; }
+            const iVal = calcPipeSlope(saved.U, saved.D, L).i;
+            if (isFinite(iVal)) r.i = iVal;
             const E = r.E;
             if (isFinite(iVal) && iVal > 0) {
                 const sqrtI = Math.sqrt(iVal);
@@ -4937,6 +4957,7 @@
             const tb = panel ? panel.querySelector(`tbody[data-group-id="${gid}"]`) : null;
             const info = tb ? getSegmentInfoForHydraulic(tb) : null;
             if (info) recalcHydraulicRow(gid, info);
+            refreshSegSlope(gid);
             scheduleAutoSave();
         }
 
@@ -5328,6 +5349,7 @@
                     if (inputs[inputIndex]) {
                         if (inputIndex === 7) {
                             inputs[inputIndex].value = parseFloat(val) ? parseFloat(val).toFixed(2) : '';
+                            setTimeout(() => refreshSegSlope(groupId), 0);
                         } else if (inputIndex === 8) {
                             inputs[inputIndex].value = parseFloat(val) ? Math.round(parseFloat(val)) : '';
                         } else {
@@ -5351,6 +5373,7 @@
             inputEl.value = val.toFixed(2);
             if (!segmentTotalLengths[activeProjectId]) segmentTotalLengths[activeProjectId] = {};
             segmentTotalLengths[activeProjectId][groupId] = val;
+            refreshSegSlope(groupId);
 
             let sum = 0;
             document.querySelectorAll('.segment-total-length-input').forEach(inp => sum += parseFloat(inp.value) || 0);
@@ -5372,12 +5395,14 @@
                         <thead>
                             <tr class="bg-gray-100">
                                 <th class="border border-gray-400 px-4 py-2 w-16 text-center">編號</th>
-                                <th class="border border-gray-400 px-4 py-2 text-center">標案名稱</th>
-                                <th class="border border-gray-400 px-4 py-2 text-center">上游</th>
-                                <th class="border border-gray-400 px-4 py-2 text-center">下游</th>
+                                <th class="border border-gray-400 px-4 py-2 text-center">上游人孔編號</th>
+                                <th class="border border-gray-400 px-4 py-2 text-center">上游渠底高程(m)</th>
+                                <th class="border border-gray-400 px-4 py-2 text-center">下游人孔編號</th>
+                                <th class="border border-gray-400 px-4 py-2 text-center">下游渠底高程(m)</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">管徑 (mm)</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">檢視管長 (m)</th>
                                 <th class="border border-gray-400 px-4 py-2 text-center">總管長 (m)</th>
+                                <th class="border border-gray-400 px-4 py-2 text-center">管線坡度 (‰)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -5396,6 +5421,8 @@
                 const length = getSegmentInspectLength(mainRow.closest('tbody')) || 0;
                 const groupId = mainRow.dataset.groupId;
                 const totalLen = segmentTotalLengths[activeProjectId]?.[groupId] || 0;
+                const hyd = (hydraulicData[activeProjectId] || {})[groupId] || {};
+                const elevU = hyd.U ?? '', elevD = hyd.D ?? '';
                 
                 totalViewLength += length;
                 totalSegmentLength += totalLen;
@@ -5403,21 +5430,24 @@
                 html += `
                     <tr class="hover:bg-gray-50 text-center">
                         <td class="border border-gray-400 px-4 py-2">${rowNum}</td>
-                        <td class="border border-gray-400 px-4 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${projectLabel}" onchange="updateSegmentField('${groupId}', 0, this)"></td>
                         <td class="border border-gray-400 px-4 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${upstream}" onchange="updateSegmentField('${groupId}', 1, this)"></td>
+                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" step="0.001" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" placeholder="無數據" value="${elevU}" oninput="updateHydraulic('${groupId}','U',this.value)"></td>
                         <td class="border border-gray-400 px-4 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${downstream}" onchange="updateSegmentField('${groupId}', 2, this)"></td>
+                        <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" step="0.001" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" placeholder="無數據" value="${elevD}" oninput="updateHydraulic('${groupId}','D',this.value)"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${diameter}" onchange="updateSegmentField('${groupId}', 8, this)"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" step="0.01" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500 segment-data-length-input" value="${(length || 0).toFixed(2)}" onchange="updateSegmentField('${groupId}', 7, this)"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" step="0.01" class="w-full h-full p-2 text-center bg-blue-50 border-0 outline-none focus:ring-2 focus:ring-blue-500 segment-total-length-input" value="${(totalLen || 0).toFixed(2)}" onchange="updateSegmentTotalLength('${groupId}', this)"></td>
+                        <td id="seg-slope-${groupId}" class="border border-gray-400 px-4 py-2">${slopeText(groupId)}</td>
                     </tr>
                 `;
             });
 
             html += `
                         <tr class="bg-gray-100 font-bold text-center">
-                            <td colspan="5" class="border border-gray-400 px-4 py-2 text-center text-gray-800">小計</td>
+                            <td colspan="6" class="border border-gray-400 px-4 py-2 text-center text-gray-800">小計</td>
                             <td class="border border-gray-400 px-4 py-2 text-blue-700 text-center" id="subtotal-segment-data-length">${(totalViewLength || 0).toFixed(2)}</td>
                             <td class="border border-gray-400 px-4 py-2 text-blue-700 text-center" id="subtotal-segment-total-length">${(totalSegmentLength || 0).toFixed(2)}</td>
+                            <td class="border border-gray-400 px-4 py-2"></td>
                         </tr>
                         </tbody>
                     </table>
@@ -5458,8 +5488,11 @@
             const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
             if (lines.length < 2) return [];
             const header = parseCsvLine(lines[0]).map(h => h.trim());
-            const idxUp = header.findIndex(h => h.includes('上游人孔') || h.includes('上游'));
-            const idxDown = header.findIndex(h => h.includes('下游人孔') || h.includes('下游'));
+            const isElev = h => /高程|渠底|管底|底高/.test(h);
+            const idxUp = header.findIndex(h => h.includes('上游人孔') || (h.includes('上游') && !isElev(h)));
+            const idxDown = header.findIndex(h => h.includes('下游人孔') || (h.includes('下游') && !isElev(h)));
+            const idxUpEl = header.findIndex(h => h.includes('上游') && isElev(h));
+            const idxDownEl = header.findIndex(h => h.includes('下游') && isElev(h));
             const idxLen = header.findIndex(h => h.includes('管線長度') || h.includes('管長') || h.includes('長度'));
             if (idxUp < 0 || idxDown < 0 || idxLen < 0) throw new Error('CSV 欄位不符（需含上游人孔、下游人孔、管線長度）');
             const recs = [];
@@ -5468,9 +5501,22 @@
                 const up = (c[idxUp] || '').trim();
                 const down = (c[idxDown] || '').trim();
                 const len = parseFloat(c[idxLen]);
-                if (up && down && isFinite(len)) recs.push({ up: normManhole(up), down: normManhole(down), len });
+                const el = idx => { if (idx < 0) return null; const v = parseFloat(c[idx]); return isFinite(v) ? v : null; };
+                let upEl = el(idxUpEl), downEl = el(idxDownEl);
+                if (upEl === 0 && downEl === 0) { upEl = null; downEl = null; } // 上下游皆 0 視為無高程資料
+                if (up && down && isFinite(len)) recs.push({ up: normManhole(up), down: normManhole(down), len, upEl, downEl });
             }
             return recs;
+        }
+
+        // 回傳符合的 CSV 紀錄；方向相反時上下游高程對調
+        function matchPipeRecord(records, up, down) {
+            const U = normManhole(up), D = normManhole(down);
+            for (const rec of records) {
+                if (rec.up === U && rec.down === D) return rec;
+                if (rec.up === D && rec.down === U) return { ...rec, upEl: rec.downEl, downEl: rec.upEl };
+            }
+            return null;
         }
 
         function matchPipeLength(records, up, down) {
@@ -5512,12 +5558,20 @@
 
             if (jobs.length === 0) { showMessage('請先於統計表填寫上游、下游人孔編號', true); return; }
 
-            let ok = 0, fail = 0;
+            let ok = 0, fail = 0, elOk = 0;
             jobs.forEach(job => {
-                const len = matchPipeLength(sewerCsvCache, job.up, job.down);
-                if (len !== null) {
+                const rec = matchPipeRecord(sewerCsvCache, job.up, job.down);
+                if (rec) {
                     if (!segmentTotalLengths[activeProjectId]) segmentTotalLengths[activeProjectId] = {};
-                    segmentTotalLengths[activeProjectId][job.groupId] = len;
+                    segmentTotalLengths[activeProjectId][job.groupId] = rec.len;
+                    // 渠底高程寫入水理資料（與水理計算表共用同一份）
+                    if (rec.upEl !== null || rec.downEl !== null) {
+                        if (!hydraulicData[activeProjectId]) hydraulicData[activeProjectId] = {};
+                        const hd = hydraulicData[activeProjectId][job.groupId] = hydraulicData[activeProjectId][job.groupId] || {};
+                        if (rec.upEl !== null) hd.U = String(rec.upEl);
+                        if (rec.downEl !== null) hd.D = String(rec.downEl);
+                        elOk++;
+                    }
                     ok++;
                 } else {
                     fail++;
@@ -5526,11 +5580,26 @@
 
             generateSegmentDataTable();
             scheduleAutoSave();
-            showMessage(`完成：成功帶入 ${ok} 筆${fail ? `，${fail} 筆查無資料` : ''}`);
+            showMessage(`完成：成功帶入 ${ok} 筆（渠底高程 ${elOk} 筆）${fail ? `，${fail} 筆查無資料` : ''}`);
+        }
+
+        // 複製檢視管段資料表，空白的渠底高程匯出為「無數據」
+        function segmentTableForExport() {
+            const src = document.getElementById('segmentDataTableData');
+            if (!src) return null;
+            const table = src.cloneNode(true);
+            const srcInputs = src.querySelectorAll('input');
+            table.querySelectorAll('input').forEach((inp, k) => {
+                const v = srcInputs[k] ? srcInputs[k].value : inp.value;
+                inp.type = 'text';
+                inp.value = (inp.getAttribute('placeholder') === '無數據' && !v.trim()) ? '無數據' : v;
+                inp.setAttribute('value', inp.value);
+            });
+            return table;
         }
 
         function exportSegmentDataReport() {
-            const table = document.getElementById('segmentDataTableData');
+            const table = segmentTableForExport();
             const projName = projects.find(p => p.id === activeProjectId).name;
             exportToExcel(table, `${projName}_檢視管段資料`);
             showMessage('已匯出管段資料報表 (Excel)');
