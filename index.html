@@ -53,6 +53,7 @@
         
         thead tr:nth-child(2) th { top: 37px; }
         thead tr:nth-child(3) th { top: 74px; }
+        #projectStatsModal th { position: static; }
 
         input[type="text"], input[type="number"], input[type="date"], select {
             width: 100%;
@@ -2124,10 +2125,12 @@
         const DAMAGE_GRADES = ['A-1', 'A-2', 'B-1', 'B-2', 'C-1', 'C-2', 'C-3'];
         function generateGradeDamageTable() {
             const th = 'border border-gray-400 px-2 py-1 text-center';
-            let html = '<thead><tr class="bg-gray-100"><th rowspan="2" class="' + th + '">專案列表</th>'
+            let html = '<thead><tr class="bg-gray-100"><th rowspan="3" class="' + th + '">專案列表</th>'
                 + DAMAGE_GRADES.map(g => '<th colspan="2" class="' + th + '">' + (g === 'C-3' ? 'C-3(無異常)' : g) + '</th>').join('')
                 + '</tr><tr class="bg-gray-50">'
-                + DAMAGE_GRADES.map(() => '<th class="' + th + ' text-xs font-normal">損壞數量(m)</th><th class="' + th + ' text-xs font-normal">損壞段數(段)</th>').join('')
+                + DAMAGE_GRADES.map(() => '<th colspan="2" class="' + th + ' text-xs font-normal">損壞數量</th>').join('')
+                + '</tr><tr class="bg-gray-50">'
+                + DAMAGE_GRADES.map(() => '<th class="' + th + ' text-xs font-normal">(m)</th><th class="' + th + ' text-xs font-normal">(段)</th>').join('')
                 + '</tr></thead><tbody>';
             const totM = {}, totN = {}; DAMAGE_GRADES.forEach(g => { totM[g] = 0; totN[g] = 0; });
             let hasData = false;
