@@ -130,6 +130,9 @@
 
         textarea.cell-wrap { width: 100%; border: 0; background: transparent; outline: none; resize: none; overflow: hidden; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; text-align: center; font: inherit; padding: 4px; line-height: 1.3; display: block; min-height: 1.9em; }
         textarea.cell-wrap:focus { background: #eff6ff; }
+            html { zoom: 0.8; }
+        body.h-screen { height: 125vh; }
+        .h-screen { height: 125vh; }
     </style>
 </head>
 <body class="flex h-screen w-full">
@@ -184,12 +187,12 @@
     <div class="flex-1 flex flex-col min-w-0 bg-gray-100">
         <div id="dataEntryHeader" class="px-5 py-4 bg-white border-b border-slate-200 flex flex-col gap-3 shrink-0">
             <div class="flex justify-between items-center">
-                <h1 class="text-lg font-bold text-slate-800 leading-none">污水管線檢視異常狀況統計表</h1>
+                <h1 class="text-lg font-bold text-slate-800 leading-none" style="margin-left:6em">污水管線檢視異常狀況統計表</h1>
                 <button id="lockToggleBtn" onclick="toggleUILock()" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-colors bg-slate-200 text-slate-700 hover:bg-slate-300 shrink-0">🔓 全部鎖定</button>
             </div>
             <div class="flex flex-wrap items-end gap-x-5 gap-y-3">
                 <div class="flex flex-col">
-                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>管線基礎資料</span>
+                    <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-500 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>管線基礎資料</span>
                     <div class="flex gap-1.5">
                         <button onclick="showSegmentDataView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">管段資料</button>
                         <button onclick="showProjectInfoView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">標案資料</button>
@@ -197,7 +200,7 @@
                 </div>
                 <div class="w-px self-stretch bg-slate-200"></div>
                 <div class="flex flex-col">
-                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>異常狀況統計</span>
+                    <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-500 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>異常狀況統計</span>
                     <div class="flex gap-1.5">
                         <button onclick="showRepairSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計修繕</button>
                         <button onclick="showSummaryView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">統計異常</button>
@@ -207,7 +210,7 @@
                 </div>
                 <div class="w-px self-stretch bg-slate-200"></div>
                 <div class="flex flex-col">
-                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>異常狀況改善</span>
+                    <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-500 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>異常狀況改善</span>
                     <div class="flex gap-1.5">
                         <button onclick="showReportDesignView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">提報修繕</button>
                         <button onclick="showHydraulicView()" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200">水理計算</button>
@@ -215,7 +218,7 @@
                 </div>
                 <div class="w-px self-stretch bg-slate-200"></div>
                 <div class="flex flex-col">
-                    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>編輯／匯出</span>
+                    <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-500 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>編輯／匯出</span>
                     <div class="flex gap-1.5">
                         <div class="relative hdr-menu-wrap">
                             <button onclick="toggleHdrMenu('menuAdd')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">+ 新增 ▾</button>
