@@ -5432,7 +5432,7 @@
 
                 html += `
                     <tr class="hover:bg-gray-50 text-center">
-                        <td class="border border-gray-400 px-4 py-2">${rowNum}</td>
+                        <td class="border border-gray-400 px-4 py-2 relative group cursor-default">${rowNum}<span class="no-export pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-1 z-30 hidden group-hover:block whitespace-nowrap bg-slate-800 text-white text-xs rounded px-2 py-1 shadow-lg">${projectLabel}</span></td>
                         <td class="border border-gray-400 px-4 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${upstream}" onchange="updateSegmentField('${groupId}', 1, this)"></td>
                         <td class="border border-gray-400 px-2 py-2 p-0"><input type="number" step="0.001" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" placeholder="無數據" value="${elevU}" oninput="updateHydraulic('${groupId}','U',this.value)"></td>
                         <td class="border border-gray-400 px-4 py-2 p-0"><input type="text" class="w-full h-full p-2 text-center bg-transparent border-0 outline-none focus:ring-2 focus:ring-blue-500" value="${downstream}" onchange="updateSegmentField('${groupId}', 2, this)"></td>
@@ -5591,6 +5591,7 @@
             const src = document.getElementById('segmentDataTableData');
             if (!src) return null;
             const table = src.cloneNode(true);
+            table.querySelectorAll('.no-export').forEach(el => el.remove());
             const srcInputs = src.querySelectorAll('input');
             table.querySelectorAll('input').forEach((inp, k) => {
                 const v = srcInputs[k] ? srcInputs[k].value : inp.value;
